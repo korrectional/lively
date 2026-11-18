@@ -1,0 +1,11 @@
+[Unit]
+Description=Lively Robot Squirrel Wake Cycle
+After=network.target lively-world.service
+
+[Service]
+Type=oneshot
+User=dietpi
+WorkingDirectory=/home/dietpi/lively
+Environment="PATH=/home/dietpi/.local/bin:/home/dietpi/lively/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="LIVELY_DATA_DIR=/home/dietpi/.lively"
+ExecStart=/home/dietpi/lively/.venv/bin/python3 -m lively.cli wake

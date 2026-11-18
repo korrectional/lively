@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lively — Robot Squirrel 2D World</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐿️</text></svg>">
+</head>
+<body>
+    <div id="app">
+        <!-- Top Navigation Bar -->
+        <header id="top-bar">
+            <div class="logo">
+                <span class="icon">🐿️⚡</span>
+                <span class="title">LIVELY</span>
+                <span class="subtitle">Autonomous Robot Squirrel</span>
+            </div>
+            <div class="header-stats">
+                <div class="stat"><span class="label">Squirrel Pos:</span> <span id="stat-squirrel-pos" class="val">(0, 0)</span></div>
+                <div class="stat"><span class="label">Your Pos:</span> <span id="stat-user-pos" class="val">(0, 0)</span></div>
+                <div class="stat"><span class="label">Battery:</span> <span id="stat-battery" class="val">100%</span></div>
+                <div class="stat"><span class="label">Gmail:</span> <span id="stat-gmail" class="val badge">Checking...</span></div>
+            </div>
+            <div class="header-actions">
+                <button id="btn-wake" class="btn primary" title="Trigger a cognitive wake cycle right now">⚡ Wake Squirrel</button>
+                <button id="btn-toggle-sidebar" class="btn">☰ Control Deck</button>
+            </div>
+        </header>
+
+        <!-- Main World Canvas Container -->
+        <main id="canvas-container">
+            <canvas id="world-canvas"></canvas>
+
+            <!-- Floating Thought Bubble -->
+            <div id="thought-bubble" class="floating-panel">
+                <div class="thought-header">🐿️ Lively's Current Thought</div>
+                <div id="thought-text" class="thought-body">Booting up optic and gyro sensors...</div>
+                <div id="activity-text" class="thought-activity">Resting in cyber tree</div>
+            </div>
+
+            <!-- Controls overlay -->
+            <div id="canvas-hint">
+                <span>Move: <b>WASD</b> or <b>Arrow Keys</b> or <b>Click on Map</b></span> |
+                <span>Pan: <b>Drag canvas</b></span> |
+                <span>Zoom: <b>Scroll wheel</b></span>
+            </div>
+        </main>
+
+        <!-- Collapsible Sidebar Panel -->
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-tabs">
+                <button class="tab-btn active" data-tab="tab-world">🗺️ World</button>
+                <button class="tab-btn" data-tab="tab-workshop">💻 Workshop</button>
+                <button class="tab-btn" data-tab="tab-memories">📖 Diary</button>
+                <button class="tab-btn" data-tab="tab-settings">⚙️ Connect</button>
+            </div>
+
+            <div class="sidebar-content">
+                <!-- Tab: World Builder -->
+                <div id="tab-world" class="tab-pane active">
+                    <h3>World Objects</h3>
+                    <p class="hint">Click anywhere on the map or use the form below to place objects into Lively's world.</p>
+                    
+                    <form id="form-add-object" class="card">
+                        <h4>Add Object / Landmark</h4>
+                        <div class="form-group">
+                            <label>Name:</label>
+                            <input type="text" id="obj-name" placeholder="e.g. Copper Oak Tree" required>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>X:</label>
+                                <input type="number" id="obj-x" value="100" step="10">
+                            </div>
+                            <div class="form-group">
+                                <label>Y:</label>
+                                <input type="number" id="obj-y" value="100" step="10">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Type:</label>
+                            <select id="obj-type">
+                                <option value="tree">🌳 Tree / Perch</option>
+                                <option value="landmark">📍 Landmark</option>
+                                <option value="cache">🌰 Nut Cache</option>
+                                <option value="sensor">📡 Telemetry Sensor</option>
+                                <option value="contraption">⚙️ Contraption</option>
+                                <option value="note">📝 Note</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Description:</label>
+                            <textarea id="obj-desc" rows="2" placeholder="What is this item?"></textarea>
+                        </div>
+                        <button type="submit" class="btn primary full-width">+ Place Object</button>
+                    </form>
+
+                    <div class="object-list-section">
+                        <h4>Existing Objects (<span id="obj-count">0</span>)</h4>
+                        <div id="object-list" class="item-list"></div>
+                    </div>
+                </div>
+
+                <!-- Tab: Squirrel Coding Workshop -->
+                <div id="tab-workshop" class="tab-pane">
+                    <h3>Squirrel's Coding Workshop</h3>
+                    <p class="hint">Scripts and programs coded by Lively for self-enjoyment and simulation tinkering.</p>
+                    <div id="project-list" class="item-list"></div>
+
+                    <div id="code-viewer" class="card hidden">
+                        <div class="code-header">
+                            <span id="code-filename" class="code-title">script.py</span>
+                            <button id="btn-run-code" class="btn small success">▶ Run Script</button>
+                        </div>
+                        <pre><code id="code-content"></code></pre>
+                        <div id="code-output" class="code-output-box hidden">
+                            <div class="output-title">Console Output:</div>
+                            <pre><code id="code-stdout"></code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Memories & Diary -->
+                <div id="tab-memories" class="tab-pane">
+                    <h3>Memory Archives</h3>
+                    <div class="card summary-card">
+                        <h4>Long-Term Memory Summary</h4>
+                        <div id="long-term-summary" class="markdown-body">Loading...</div>
+                    </div>
+                    <h4>Daily Journal Entries</h4>
+                    <div id="journal-list" class="item-list"></div>
+                </div>
+
+                <!-- Tab: Gmail & Connectivity -->
+                <div id="tab-settings" class="tab-pane">
+                    <h3>Gmail & Settings</h3>
+                    <div class="card">
+                        <h4>Gmail Connection</h4>
+                        <p class="hint">Authorize Lively so the squirrel can email you its daily adventures, inventions, and greetings!</p>
+                        <div id="gmail-status-card" class="status-indicator">
+                            <span id="gmail-status-text">Checking status...</span>
+                        </div>
+                        <div id="gmail-auth-action" class="mt-2">
+                            <button id="btn-auth-gmail" class="btn primary full-width">🔗 Connect Gmail Account</button>
+                        </div>
+                    </div>
+
+                    <div class="card mt-2">
+                        <h4>Avatar Customization</h4>
+                        <div class="form-group">
+                            <label>Your Name:</label>
+                            <input type="text" id="user-display-name" value="David">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Modal for reading journal or inspecting object -->
+    <div id="modal" class="modal hidden">
+        <div class="modal-content">
+            <span id="modal-close" class="modal-close">&times;</span>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

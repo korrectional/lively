@@ -1,0 +1,11 @@
+[Unit]
+Description=Lively Robot Squirrel Wake Cycle Timer (2x Daily)
+
+[Timer]
+# Wakes 2 times a day: at 09:00 and 21:00
+OnCalendar=*-*-* 09:00:00
+OnCalendar=*-*-* 21:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

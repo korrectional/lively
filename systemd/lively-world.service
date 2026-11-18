@@ -1,0 +1,18 @@
+[Unit]
+Description=Lively 2D World Web Server
+After=network.target
+
+[Service]
+Type=simple
+User=dietpi
+WorkingDirectory=/home/dietpi/lively
+Environment="PATH=/home/dietpi/lively/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="LIVELY_DATA_DIR=/home/dietpi/.lively"
+Environment="LIVELY_HOST=0.0.0.0"
+Environment="LIVELY_PORT=8880"
+ExecStart=/home/dietpi/lively/.venv/bin/python3 -m lively.cli serve --host 0.0.0.0 --port 8880
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

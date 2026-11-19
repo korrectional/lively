@@ -366,8 +366,11 @@
                         <div class="form-group">
                             <label>Timer Status:</label>
                             <div id="schedule-status-banner" class="status-banner paused">
-                                <span id="schedule-badge" class="badge">Paused</span>
-                                <span id="schedule-next-run">Manual trigger only</span>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span id="schedule-badge" class="badge">Paused</span>
+                                    <span id="schedule-next-run">Manual trigger only</span>
+                                </div>
+                                <div id="schedule-last-run" class="hint" style="margin-top:6px; font-size:0.8rem; display:none;"></div>
                             </div>
                         </div>
 
@@ -375,9 +378,9 @@
                             <div class="form-group">
                                 <label>Run Frequency:</label>
                                 <select id="schedule-frequency-select">
-                                    <option value="paused">⏸️ Paused (Manual Wake Only — Current)</option>
-                                    <option value="daily">🌅 Once a Day (12:00 UTC)</option>
-                                    <option value="twice_daily">⏰ Twice a Day (09:00 & 21:00)</option>
+                                    <option value="paused">⏸️ Paused (Manual Wake Only)</option>
+                                    <option value="daily">🌅 Once a Day (12:00 Local)</option>
+                                    <option value="twice_daily">⏰ Twice a Day (09:00 & 21:00 Local)</option>
                                     <option value="four_daily">⚡ Four Times a Day (Every 6 Hours)</option>
                                     <option value="hourly">⏱️ Hourly (Every Hour)</option>
                                     <option value="custom">🛠️ Custom (Systemd OnCalendar)</option>

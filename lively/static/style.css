@@ -821,8 +821,9 @@ pre {
 /* Settings & Schedule Styling */
 .status-banner {
     display: flex;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
     padding: 10px 14px;
     border-radius: var(--ks-radius-sm);
     background: var(--ks-lacquer-deep);

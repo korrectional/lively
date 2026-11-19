@@ -4,6 +4,7 @@ Manages systemd timer frequency and status.
 """
 
 import os
+import re
 import json
 import subprocess
 import shutil
@@ -21,7 +22,31 @@ SCHEDULE_PRESETS = {
 }
 
 TIMER_UNIT = "lively-squirrel.timer"
+SERVICE_UNIT = "lively-squirrel.service"
 TIMER_PATH = Path("/etc/systemd/system/lively-squirrel.timer")
+
+def _parse_systemd_show(output: str) -> Dict[str, str]:
+    """Parse key=value properties from systemctl show."""
+    props = {}
+    for line in output.splitlines():
+        if "=" in line:
+            k, v = line.split("=", 1)
+            props[k.strip()] = v.strip()
+    return props
+
+def calculate_next_run(calendar_spec: str) -> Optional[str]:
+    """Calculate the next elapse timestamp using systemd-analyze calendar."""
+    sa = shutil.which("systemd-analyze")
+    if not sa or not calendar_spec:
+        return None
+    try:
+        res = subprocess.run([sa, "calendar", calendar_spec], capture_output=True, text=True, timeout=5)
+        for line in res.stdout.splitlines():
+            if "Next elapse:" in line:
+                return line.split("Next elapse:", 1)[1].strip()
+    except Exception:
+        pass
+    return None
 
 class SchedulerManager:
     """Manages the wake cycle schedule and systemd timer on Linux."""
@@ -38,6 +63,7 @@ class SchedulerManager:
                 "custom_on_calendar": "",
                 "enabled": False,
                 "active": False,
+                "executing": False,
                 "next_run": "Paused / None",
                 "last_run": None,
                 "message": "Timer is currently paused."
@@ -51,6 +77,7 @@ class SchedulerManager:
             "custom_on_calendar": "",
             "enabled": False,
             "active": False,
+            "executing": False,
             "next_run": "Paused / None",
             "last_run": None,
             "message": "Manual wake only"
@@ -65,25 +92,61 @@ class SchedulerManager:
         systemctl = shutil.which("systemctl")
         if systemctl:
             try:
-                # Check active status
-                act_res = subprocess.run([systemctl, "is-active", TIMER_UNIT], capture_output=True, text=True)
-                is_active = (act_res.stdout.strip() == "active")
-                data["active"] = is_active
+                # Query timer properties
+                res_timer = subprocess.run([systemctl, "show", TIMER_UNIT, "--no-pager"], capture_output=True, text=True, timeout=5)
+                timer_props = _parse_systemd_show(res_timer.stdout)
 
-                # Check enabled status
-                en_res = subprocess.run([systemctl, "is-enabled", TIMER_UNIT], capture_output=True, text=True)
-                is_enabled = (en_res.stdout.strip() == "enabled")
+                is_active = (timer_props.get("ActiveState") == "active")
+                is_enabled = (timer_props.get("UnitFileState") == "enabled")
+                data["active"] = is_active
                 data["enabled"] = is_enabled
+
+                # Query service execution status
+                res_svc = subprocess.run([systemctl, "show", SERVICE_UNIT, "--no-pager", "-p", "ActiveState", "-p", "SubState"], capture_output=True, text=True, timeout=5)
+                svc_props = _parse_systemd_show(res_svc.stdout)
+                is_executing = svc_props.get("ActiveState") in ("active", "activating")
+                data["executing"] = is_executing
+
+                # Last run
+                last_trigger = timer_props.get("LastTriggerUSec")
+                if last_trigger and last_trigger != "n/a":
+                    data["last_run"] = last_trigger
 
                 if not is_active:
                     data["next_run"] = "Paused / None"
+                    data["message"] = "Timer is paused. Manual wake only."
                 else:
-                    lt_res = subprocess.run([systemctl, "list-timers", TIMER_UNIT, "--no-pager"], capture_output=True, text=True)
-                    lines = [line.strip() for line in lt_res.stdout.splitlines() if TIMER_UNIT in line]
-                    if lines:
-                        parts = lines[0].split()
-                        if len(parts) >= 3 and parts[0] != "n/a":
-                            data["next_run"] = f"{parts[0]} {parts[1]} {parts[2]}"
+                    # Determine next run cleanly
+                    next_run = timer_props.get("NextElapseUSecRealtime")
+                    # If NextElapseUSecRealtime is empty or invalid, try TimersCalendar or systemd-analyze
+                    if not next_run or next_run.startswith("-") or next_run == "n/a":
+                        cal_text = timer_props.get("TimersCalendar", "")
+                        match = re.search(r"next_elapse=([^;}\n]+)", cal_text)
+                        if match:
+                            candidate = match.group(1).strip()
+                            if candidate and not candidate.startswith("-") and candidate != "n/a":
+                                next_run = candidate
+
+                    # If still unresolved, compute via systemd-analyze calendar
+                    if not next_run or next_run.startswith("-") or next_run == "n/a":
+                        freq = data.get("frequency", "four_daily")
+                        calendars = SCHEDULE_PRESETS.get(freq, [])
+                        if freq == "custom" and data.get("custom_on_calendar"):
+                            calendars = [c.strip() for c in data["custom_on_calendar"].split(";") if c.strip()]
+                        if calendars:
+                            calc = calculate_next_run(calendars[0])
+                            if calc:
+                                next_run = calc
+
+                    if next_run and not next_run.startswith("-") and next_run != "n/a":
+                        data["next_run"] = next_run
+                    else:
+                        data["next_run"] = "Scheduled"
+
+                    if is_executing:
+                        data["message"] = "A wake cycle is currently running in the background."
+                    else:
+                        data["message"] = f"Timer active ({data.get('frequency', 'custom')}). Next run: {data['next_run']}."
             except Exception:
                 pass
 
@@ -102,8 +165,8 @@ class SchedulerManager:
             if systemctl:
                 try:
                     cmd_prefix = [sudo] if sudo else []
-                    subprocess.run(cmd_prefix + [systemctl, "stop", TIMER_UNIT], capture_output=True)
-                    subprocess.run(cmd_prefix + [systemctl, "disable", TIMER_UNIT], capture_output=True)
+                    subprocess.run(cmd_prefix + [systemctl, "stop", TIMER_UNIT], capture_output=True, timeout=10)
+                    subprocess.run(cmd_prefix + [systemctl, "disable", TIMER_UNIT], capture_output=True, timeout=10)
                 except Exception:
                     pass
             status = {
@@ -111,6 +174,7 @@ class SchedulerManager:
                 "custom_on_calendar": custom_on_calendar or "",
                 "enabled": False,
                 "active": False,
+                "executing": False,
                 "next_run": "Paused / None",
                 "last_run": self.get_status().get("last_run"),
                 "message": "Lively wake cycle timer is paused. Squirrel will only wake when manually triggered."
@@ -128,7 +192,7 @@ Description=Lively Robot Squirrel Wake Cycle Timer ({freq})
 
 [Timer]
 {cal_lines}
-Persistent=true
+Persistent=false
 
 [Install]
 WantedBy=timers.target
@@ -139,10 +203,10 @@ WantedBy=timers.target
             if systemctl:
                 try:
                     cmd_prefix = [sudo] if sudo else []
-                    subprocess.run(cmd_prefix + ["cp", str(tmp_timer), str(TIMER_PATH)], capture_output=True)
-                    subprocess.run(cmd_prefix + [systemctl, "daemon-reload"], capture_output=True)
-                    subprocess.run(cmd_prefix + [systemctl, "enable", TIMER_UNIT], capture_output=True)
-                    subprocess.run(cmd_prefix + [systemctl, "restart", TIMER_UNIT], capture_output=True)
+                    subprocess.run(cmd_prefix + ["cp", str(tmp_timer), str(TIMER_PATH)], capture_output=True, timeout=10)
+                    subprocess.run(cmd_prefix + [systemctl, "daemon-reload"], capture_output=True, timeout=10)
+                    subprocess.run(cmd_prefix + [systemctl, "enable", TIMER_UNIT], capture_output=True, timeout=10)
+                    subprocess.run(cmd_prefix + [systemctl, "restart", TIMER_UNIT], capture_output=True, timeout=10)
                 except Exception as e:
                     print(f"Error configuring systemd timer: {e}")
 
@@ -151,6 +215,7 @@ WantedBy=timers.target
                 "custom_on_calendar": custom_on_calendar or "",
                 "enabled": True,
                 "active": True,
+                "executing": False,
                 "next_run": "Scheduled",
                 "last_run": self.get_status().get("last_run"),
                 "message": f"Schedule set to '{freq}'. Next wake cycle is active."

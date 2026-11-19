@@ -331,7 +331,10 @@ class TestEmailRequest(BaseModel):
 @app.get("/api/settings/schedule")
 async def get_schedule_settings():
     """Retrieve current wake cycle timer status and cadence."""
-    return scheduler.get_status()
+    status = scheduler.get_status()
+    if not status.get("last_run") and world.squirrel.last_wake_time:
+        status["last_run"] = f"{world.squirrel.last_wake_time} (Cycle #{world.squirrel.total_cycles})"
+    return status
 
 @app.post("/api/settings/schedule")
 async def update_schedule_settings(req: ScheduleChangeRequest):
@@ -340,6 +343,8 @@ async def update_schedule_settings(req: ScheduleChangeRequest):
         frequency=req.frequency,
         custom_on_calendar=req.custom_on_calendar
     )
+    if not status.get("last_run") and world.squirrel.last_wake_time:
+        status["last_run"] = f"{world.squirrel.last_wake_time} (Cycle #{world.squirrel.total_cycles})"
     await broadcast({
         "type": "schedule_updated",
         "schedule": status

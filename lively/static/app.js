@@ -836,6 +836,7 @@ function handleWebSocketMessage(data) {
         loadThoughtSessions();
         loadIncomingEmails();
         loadSystemInfo();
+        loadSchedule();
         showNotification("🐿️ Squirrel finished a wake cycle!");
     }
 }
@@ -1847,6 +1848,7 @@ async function loadSchedule() {
 
         const badge = document.getElementById("schedule-badge");
         const nextRun = document.getElementById("schedule-next-run");
+        const lastRun = document.getElementById("schedule-last-run");
         const banner = document.getElementById("schedule-status-banner");
         const select = document.getElementById("schedule-frequency-select");
         const customGroup = document.getElementById("custom-calendar-group");
@@ -1865,7 +1867,18 @@ async function loadSchedule() {
             }
         }
 
-        if (data.active) {
+        if (data.executing) {
+            if (badge) {
+                badge.innerText = "Executing Now ⚡";
+                badge.className = "badge active";
+            }
+            if (banner) {
+                banner.className = "status-banner active";
+            }
+            if (nextRun) {
+                nextRun.innerText = `Wake cycle in progress... (Next: ${data.next_run || "Pending"})`;
+            }
+        } else if (data.active) {
             if (badge) {
                 badge.innerText = "Active";
                 badge.className = "badge ready";
@@ -1886,6 +1899,15 @@ async function loadSchedule() {
             }
             if (nextRun) {
                 nextRun.innerText = "Manual wake only (Timer stopped)";
+            }
+        }
+
+        if (lastRun) {
+            if (data.last_run && data.last_run !== "n/a") {
+                lastRun.innerText = `Last triggered: ${data.last_run}`;
+                lastRun.style.display = "block";
+            } else {
+                lastRun.style.display = "none";
             }
         }
     } catch (e) {
@@ -2042,6 +2064,7 @@ loadBlogPosts();
 loadThoughtSessions();
 loadIncomingEmails();
 loadSchedule();
+setInterval(loadSchedule, 30000);
 loadSystemInfo();
 connectWebSocket();
 requestAnimationFrame(render);

@@ -564,11 +564,12 @@ function render(timestamp) {
         drawPillBadge(ctx, p.x, p.y + 24 * spriteScale, obj.name, "#cbd5e1");
     });
 
-    // Draw Robot Squirrel (Clean 🐿️ emoji — no glow, no text floating on him!)
+    // Draw Robot Squirrel (Clean 🐿️ emoji with matching nametag pill)
     const sq = state.world.squirrel;
     const sqScreen = worldToScreen(sq.x, sq.y);
     const sqScale = Math.max(0.7, Math.min(2.0, zoom));
     drawSquirrelEmoji(ctx, sqScreen.x, sqScreen.y, 38 * sqScale, sq.heading, time);
+    drawPillBadge(ctx, sqScreen.x, sqScreen.y - 26 * sqScale, sq.name || "Squirrel", "#38bdf8", "rgba(15, 23, 42, 0.9)", "rgba(6, 182, 212, 0.4)");
 
     // Draw Other Users (filter out own ID and name so NEVER duplicate!)
     state.world.users.forEach(u => {

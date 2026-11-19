@@ -15,6 +15,7 @@ from lively.config import (
     BLOG_DIR,
     THOUGHTS_DIR,
     SENT_EMAILS_FILE,
+    SQUIRREL_EMAIL,
     ensure_directories
 )
 
@@ -46,11 +47,16 @@ SQUIRREL_GREETING_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-def is_addressed_to_squirrel(subject: str = "", body: str = "") -> bool:
+def is_addressed_to_squirrel(subject: str = "", body: str = "", recipient: str = "") -> bool:
     """
-    Check if an incoming email is specifically addressed to Squirrel.
-    Requires subject or body to start with 'Hey Squirrel' (case-insensitive, allowing common squirrel typos).
+    Check if an incoming email is specifically addressed to Squirrel:
+    1. Sent to dedicated address tarassekanev+squirrel@gmail.com (or +squirrel@)
+    2. Or starts with 'Hey Squirrel' (case-insensitive, allowing common squirrel typos)
     """
+    if recipient:
+        rec_clean = recipient.lower()
+        if SQUIRREL_EMAIL.lower() in rec_clean or "+squirrel@" in rec_clean:
+            return True
     if subject and SQUIRREL_GREETING_PATTERN.search(subject.strip()):
         return True
     if body:
@@ -342,14 +348,14 @@ class MemoryManager:
         if self.received_emails_file.exists():
             try:
                 raw_list = json.loads(self.received_emails_file.read_text(encoding="utf-8"))
-                return [e for e in raw_list if is_addressed_to_squirrel(e.get("subject", ""), e.get("body", ""))]
+                return [e for e in raw_list if is_addressed_to_squirrel(e.get("subject", ""), e.get("body", ""), e.get("recipient", ""))]
             except Exception:
                 return []
         return []
 
-    def log_received_email(self, sender: str, subject: str, body: str, date_str: str) -> Optional[Dict[str, Any]]:
+    def log_received_email(self, sender: str, subject: str, body: str, date_str: str, recipient: str = SQUIRREL_EMAIL) -> Optional[Dict[str, Any]]:
         """Record an incoming email received from David if addressed to Squirrel."""
-        if not is_addressed_to_squirrel(subject, body):
+        if not is_addressed_to_squirrel(subject, body, recipient):
             return None
 
         emails = self.get_received_emails()
@@ -360,6 +366,7 @@ class MemoryManager:
 
         record = {
             "sender": sender,
+            "recipient": recipient,
             "subject": subject,
             "body": body,
             "date": date_str,

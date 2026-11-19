@@ -34,6 +34,7 @@ WORLD_MAX_Y = 1000
 # Squirrel specifics
 SQUIRREL_NAME = "Squirrel"
 USER_EMAIL = os.getenv("LIVELY_USER_EMAIL", "tarassekanev@gmail.com")
+SQUIRREL_EMAIL = os.getenv("LIVELY_SQUIRREL_EMAIL", "tarassekanev+squirrel@gmail.com")
 AGYC_BIN = os.getenv("AGYC_BIN", "agyc")
 
 def ensure_directories():

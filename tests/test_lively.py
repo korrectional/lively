@@ -195,17 +195,28 @@ def test_thought_sessions_and_email_inbox(temp_dir):
     )
     assert rec3 is not None
 
-    # Unrelated spam / security alert: MUST BE REJECTED
+    # Email sent directly to tarassekanev+squirrel@gmail.com without special greeting: ACCEPTED
+    rec4 = mm.log_received_email(
+        sender="David <tarassekanev@gmail.com>",
+        subject="Re: 🐿️ Hello from Lively the Robot Squirrel!",
+        body="How are your sensors doing today?",
+        date_str="Wed, 19 Nov 2026 01:40:00 -0500",
+        recipient="tarassekanev+squirrel@gmail.com"
+    )
+    assert rec4 is not None
+
+    # Unrelated spam / security alert sent to main address: MUST BE REJECTED
     rec_spam = mm.log_received_email(
         sender="Google <no-reply@accounts.google.com>",
         subject="Security alert: new sign-in",
         body="App password created to sign in to your account",
-        date_str="Wed, 19 Nov 2026 01:35:00 -0500"
+        date_str="Wed, 19 Nov 2026 01:35:00 -0500",
+        recipient="tarassekanev@gmail.com"
     )
     assert rec_spam is None
 
     inbox = mm.get_received_emails()
-    assert len(inbox) == 3
+    assert len(inbox) == 4
     assert not any("Security alert" in e["subject"] for e in inbox)
 
 def test_brain_action_parsing():

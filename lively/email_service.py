@@ -20,6 +20,7 @@ from lively.config import (
     GMAIL_TOKEN_FILE,
     GMAIL_CREDENTIALS_FILE,
     USER_EMAIL,
+    SQUIRREL_EMAIL,
     TAILSCALE_BASE_URL,
     BASE_DATA_DIR,
     ensure_directories
@@ -237,7 +238,8 @@ class EmailService:
             try:
                 msg = MIMEText(body, "plain", "utf-8")
                 msg["Subject"] = subject
-                msg["From"] = f"Squirrel the Robot Squirrel <{sender}>"
+                msg["From"] = f"Squirrel the Robot Squirrel <{SQUIRREL_EMAIL}>"
+                msg["Reply-To"] = SQUIRREL_EMAIL
                 msg["To"] = target_email
 
                 with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=12) as server:
@@ -255,7 +257,8 @@ class EmailService:
         if access_token:
             message = MIMEText(body, "plain", "utf-8")
             message["to"] = target_email
-            message["from"] = f"Squirrel the Robot Squirrel <{target_email}>"
+            message["from"] = f"Squirrel the Robot Squirrel <{SQUIRREL_EMAIL}>"
+            message["reply-to"] = SQUIRREL_EMAIL
             message["subject"] = subject
 
             raw_b64 = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
@@ -333,9 +336,21 @@ class EmailService:
                                 date_str = msg.get("Date") or ""
                                 body = self._extract_body(msg)
 
-                                # STRICT FILTER: Only emails starting with 'Hey Squirrel' (or typos)
-                                if is_addressed_to_squirrel(subject, body):
-                                    record = memory.log_received_email(sender, subject, body, date_str)
+                                # Extract recipient info to verify alias delivery
+                                to_hdr = self._decode_mime_words(msg.get("To") or "")
+                                delivered_to = self._decode_mime_words(msg.get("Delivered-To") or "")
+                                cc_hdr = self._decode_mime_words(msg.get("Cc") or "")
+                                recipient_str = f"{to_hdr} {delivered_to} {cc_hdr}".strip()
+
+                                # STRICT FILTER: Only emails sent to tarassekanev+squirrel@gmail.com OR greeting 'Hey Squirrel' (or typos)
+                                if is_addressed_to_squirrel(subject, body, recipient_str):
+                                    record = memory.log_received_email(
+                                        sender=sender,
+                                        subject=subject,
+                                        body=body,
+                                        date_str=date_str,
+                                        recipient=to_hdr or delivered_to or SQUIRREL_EMAIL
+                                    )
                                     if record:
                                         results.append(record)
                                         if len(results) >= max_count:

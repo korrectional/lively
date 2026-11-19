@@ -2,6 +2,12 @@
  * Lively 2D World Canvas & Client Application (Upgraded Visuals & Controls)
  */
 
+// Stored User Coordinates
+const savedUserX = parseFloat(localStorage.getItem("lively_user_x"));
+const savedUserY = parseFloat(localStorage.getItem("lively_user_y"));
+const initUserX = (!isNaN(savedUserX) && isFinite(savedUserX)) ? savedUserX : 20;
+const initUserY = (!isNaN(savedUserY) && isFinite(savedUserY)) ? savedUserY : 20;
+
 // Application State
 const state = {
     world: {
@@ -12,19 +18,19 @@ const state = {
     },
     user: {
         name: localStorage.getItem("lively_username") || "David",
-        x: 20,
-        y: 20,
-        targetX: 20,
-        targetY: 20,
+        x: initUserX,
+        y: initUserY,
+        targetX: initUserX,
+        targetY: initUserY,
         speed: 6
     },
     avatarType: localStorage.getItem("lively_avatar_type") || "scout",
     myUserId: null,
     camera: {
-        x: 0,
-        y: 0,
-        targetX: 0,
-        targetY: 0,
+        x: initUserX,
+        y: initUserY,
+        targetX: initUserX,
+        targetY: initUserY,
         zoom: 1.0,
         isDragging: false,
         lastMouseX: 0,
@@ -662,6 +668,8 @@ function updateUserMovement() {
         state.user.x += dx * 0.16;
         state.user.y += dy * 0.16;
         statUserPos.innerText = `(${Math.round(state.user.x)}, ${Math.round(state.user.y)})`;
+        localStorage.setItem("lively_user_x", Math.round(state.user.x));
+        localStorage.setItem("lively_user_y", Math.round(state.user.y));
         sendUserPosition();
     }
 }
@@ -784,8 +792,11 @@ function handleWebSocketMessage(data) {
     if (data.type === "welcome") {
         state.myUserId = data.user_id;
         updateWorldState(data.state);
-        state.camera.x = state.world.squirrel.x;
-        state.camera.y = state.world.squirrel.y;
+        // Retain view on user's saved position
+        state.camera.x = state.user.x;
+        state.camera.y = state.user.y;
+        state.camera.targetX = state.user.x;
+        state.camera.targetY = state.user.y;
     } else if (data.type === "user_moved") {
         if (state.myUserId && data.user.id === state.myUserId) return;
         const idx = state.world.users.findIndex(u => u.id === data.user.id);

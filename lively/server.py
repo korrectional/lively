@@ -23,6 +23,15 @@ from lively.scheduler import scheduler
 
 app = FastAPI(title="Lively: Robot Squirrel World", version="0.1.0")
 
+@app.middleware("http")
+async def add_no_cache_headers(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/static") or request.url.path == "/":
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 STATIC_DIR = Path(__file__).parent / "static"
 STATIC_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -70,7 +79,12 @@ async def serve_index():
     """Serve the 2D world interactive UI."""
     index_file = STATIC_DIR / "index.html"
     if index_file.exists():
-        return HTMLResponse(content=index_file.read_text(encoding="utf-8"))
+        headers = {
+            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+        return HTMLResponse(content=index_file.read_text(encoding="utf-8"), headers=headers)
     return HTMLResponse("<h1>Lively World Server</h1><p>index.html not found</p>")
 
 @app.get("/api/world")

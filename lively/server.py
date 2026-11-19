@@ -190,7 +190,7 @@ async def create_or_save_project(req: NewProjectRequest):
 
 @app.post("/api/projects/{repo_name}/run")
 async def run_project(repo_name: str, req: CodeRunRequest = CodeRunRequest()):
-    """Execute an entrypoint script within a project with AGYC Safety Checker."""
+    """Execute an entrypoint script within a project with Automated Safety Guard."""
     result = projects.execute_project(
         repo_name=repo_name,
         entrypoint=req.entrypoint,

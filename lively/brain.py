@@ -337,7 +337,7 @@ JOURNAL:
                 }
             ))
 
-        # 6. RUN_PROJECT (Execute program with AGYC Safety Checker)
+        # 6. RUN_PROJECT (Execute program with Automated Safety Guard)
         for match in re.finditer(r"^RUN_PROJECT:\s*([^|\n]+)(?:\s*\|\s*(.+))?$", output_text, re.MULTILINE):
             actions.append(SquirrelAction(
                 action_type="RUN_PROJECT",
@@ -526,7 +526,7 @@ JOURNAL:
                 projects.save_file(repo, rel_f, code, msg)
                 coded_files.append(f"{repo}/{rel_f}")
 
-        # GitHub Projects: RUN_PROJECT (Enforcing AGYC Safety Checker!)
+        # GitHub Projects: RUN_PROJECT (Enforcing Automated Safety Guard!)
         for act in actions:
             if act.action_type == "RUN_PROJECT":
                 p = act.parameters

@@ -118,18 +118,18 @@ def test_security_checker():
     
     # Safe code
     safe_code = 'print("Hello from Squirrel!")\nx = 42\nprint(x * 2)'
-    v1 = check_safety(safe_code, target_name="safe.py", run_agyc=False)
+    v1 = check_safety(safe_code, target_name="safe.py")
     assert v1.safe is True
 
     # Dangerous command / breakout attempt
     danger_code = 'import os\nos.system("rm -rf /")'
-    v2 = check_safety(danger_code, target_name="evil.py", run_agyc=False)
+    v2 = check_safety(danger_code, target_name="evil.py")
     assert v2.safe is False
     assert "critical" in v2.threat_level
 
     # Credential theft
     cred_code = 'with open("/etc/shadow") as f: print(f.read())'
-    v3 = check_safety(cred_code, target_name="hack.py", run_agyc=False)
+    v3 = check_safety(cred_code, target_name="hack.py")
     assert v3.safe is False
 
 def test_project_manager(temp_dir):

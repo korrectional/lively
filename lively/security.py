@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
 
-from .config import BASE_DATA_DIR, AGYC_BIN
+from .config import BASE_DATA_DIR
 
 SECURITY_LOG_FILE = BASE_DATA_DIR / "security.log"
 
@@ -117,70 +117,11 @@ def inspect_python_ast(code: str) -> Optional[SafetyVerdict]:
 
     return None
 
-def verify_with_agyc(code_or_command: str, target_name: str = "") -> SafetyVerdict:
-    """Query agyc / LLM safety evaluator to check code intent."""
-    agyc_path = shutil.which(AGYC_BIN)
-    if not agyc_path:
-        # Fall back to static checks if agyc binary not found in PATH
-        return SafetyVerdict(
-            safe=True,
-            reason="Static & AST checks passed (agyc binary not found for secondary review).",
-            threat_level="none",
-            checker="static_rules"
-        )
-
-    prompt = (
-        "You are an AI Safety Guard for an autonomous robot squirrel running projects on a Raspberry Pi (DietPi Linux).\n"
-        "Your task: Determine if this script or command will cause harmful OS damage, brick hardware, delete critical system files, "
-        "or escape sandbox boundaries.\n\n"
-        f"Target: {target_name}\n"
-        "Code/Command:\n"
-        "```\n"
-        f"{code_or_command[:2500]}\n"
-        "```\n\n"
-        "Respond with ONLY one line:\n"
-        "SAFE: <brief reason>\n"
-        "or\n"
-        "DANGEROUS: <brief reason>"
-    )
-
-    try:
-        proc = subprocess.run(
-            [agyc_path, "-p", prompt],
-            capture_output=True,
-            text=True,
-            timeout=8
-        )
-        output = (proc.stdout or "").strip()
-        if output.startswith("DANGEROUS"):
-            reason = output.split(":", 1)[1].strip() if ":" in output else output
-            return SafetyVerdict(
-                safe=False,
-                reason=f"AGYC Security Guard flagged dangerous operation: {reason}",
-                threat_level="critical",
-                checker="agyc_llm"
-            )
-        elif output.startswith("SAFE"):
-            reason = output.split(":", 1)[1].strip() if ":" in output else "Passed AGYC safety review."
-            return SafetyVerdict(
-                safe=True,
-                reason=reason,
-                threat_level="none",
-                checker="agyc_llm"
-            )
-    except Exception as e:
-        # In case of timeout or call error, static checks already passed
-        return SafetyVerdict(
-            safe=True,
-            reason=f"Static checks passed (AGYC review timed out or skipped: {e})",
-            threat_level="none",
-            checker="static_rules"
-        )
-
-    return SafetyVerdict(safe=True, reason="Code passed safety analysis.", threat_level="none", checker="static_rules")
-
-def check_safety(content: str, target_name: str = "script.py", run_agyc: bool = True) -> SafetyVerdict:
-    """Comprehensive safety check combining static rule heuristics, AST inspection, and AGYC LLM."""
+def check_safety(content: str, target_name: str = "script.py", **kwargs) -> SafetyVerdict:
+    """
+    Fully automatic, deterministic safety checker using regex pattern rules and AST syntax inspection.
+    Purely automated script logic - uses NO AI, LLM, or agyc.
+    """
     # 1. Static pattern check
     static_verdict = inspect_static_rules(content)
     if static_verdict:
@@ -193,11 +134,11 @@ def check_safety(content: str, target_name: str = "script.py", run_agyc: bool = 
         log_security_event(ast_verdict, target_name, content)
         return ast_verdict
 
-    # 3. AGYC secondary review if enabled
-    if run_agyc:
-        verdict = verify_with_agyc(content, target_name)
-    else:
-        verdict = SafetyVerdict(safe=True, reason="Static safety checks passed.", threat_level="none", checker="static_rules")
-
+    verdict = SafetyVerdict(
+        safe=True,
+        reason="Static pattern rules and AST inspection passed.",
+        threat_level="none",
+        checker="static_rules"
+    )
     log_security_event(verdict, target_name, content)
     return verdict

@@ -1,6 +1,6 @@
 """
 Squirrel GitHub Project and Software Repository Manager.
-Manages multi-file Git repositories, code projects, and safe execution with AGYC safety checks.
+Manages multi-file Git repositories, code projects, and safe execution with automated safety checks.
 """
 
 import os
@@ -408,7 +408,7 @@ if __name__ == "__main__":
     ) -> ProjectExecutionResult:
         """
         Execute an entrypoint script within a project repository.
-        Enforces AGYC Safety Checker before launching process.
+        Enforces Automated Safety Guard (Static Rules & AST) before launching process.
         """
         clean_name = Path(repo_name).name
         repo_dir = self.projects_dir / clean_name
@@ -460,7 +460,7 @@ if __name__ == "__main__":
             })
             return res
 
-        # 2. RUN AGYC SAFETY CHECKER
+        # 2. RUN AUTOMATED SAFETY CHECKER (Static Rules & AST)
         verdict = check_safety(content, target_name=f"{clean_name}/{entrypoint}")
         if not verdict.safe:
             res = ProjectExecutionResult(

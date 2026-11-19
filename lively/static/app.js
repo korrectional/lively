@@ -1185,7 +1185,7 @@ if (repoFileSelect) {
     });
 }
 
-// Run program with AGYC Safety Checker
+// Run program with Automated Safety Guard
 const btnRunCode = document.getElementById("btn-run-code");
 if (btnRunCode) {
     btnRunCode.addEventListener("click", async () => {
@@ -1206,10 +1206,10 @@ if (btnRunCode) {
             outputBox.classList.remove("hidden");
 
             if (out.blocked) {
-                stdoutBox.innerHTML = `<span style="color:#ef4444; font-weight:bold;">🛡️ EXECUTION BLOCKED BY AGYC SAFETY CHECKER:</span>\n${escapeHtml(out.error)}\nThreat Level: Critical | Sandbox Boundary Protected.`;
+                stdoutBox.innerHTML = `<span style="color:#ef4444; font-weight:bold;">🛡️ EXECUTION BLOCKED BY SAFETY GUARD:</span>\n${escapeHtml(out.error)}\nThreat Level: Critical | Sandbox Boundary Protected.`;
                 showNotification("⚠️ Program blocked by Safety Checker!");
             } else if (out.success) {
-                let safetyNote = out.safety_verdict ? `\n[AGYC Safety: Approved - ${out.safety_verdict.reason}]` : "";
+                let safetyNote = out.safety_verdict ? `\n[Safety Guard: Approved - ${out.safety_verdict.reason}]` : "";
                 stdoutBox.innerText = (out.stdout || "Program completed with returncode 0.") + safetyNote;
                 showNotification(`▶ Program '${entrypoint}' finished successfully!`);
             } else {
@@ -1218,7 +1218,7 @@ if (btnRunCode) {
         } catch (e) {
             alert("Error running code: " + e);
         } finally {
-            btnRunCode.innerText = "▶ Run Program (AGYC Guarded)";
+            btnRunCode.innerText = "▶ Run Program (Safety Guarded)";
             btnRunCode.disabled = false;
         }
     });

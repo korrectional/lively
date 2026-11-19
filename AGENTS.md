@@ -22,7 +22,7 @@ lively/
 ├── lively/
 │   ├── brain.py          # Cognitive core: prompt synthesis, agyc query, action parsing & execution
 │   ├── projects.py       # GitHub repository manager: git init, file tracking, execution, gh publication
-│   ├── security.py       # AGYC Safety Guard & AST inspection for safe code execution
+│   ├── security.py       # Automated Script & AST Safety Guard for safe code execution (no AI/agyc)
 │   ├── world.py          # Spatial 2D world state: bounds, 60m clearance, coordinate rounding, multi-player
 │   ├── memory.py         # Long-term chronicle, markdown diaries, cache items, email filtering logic
 │   ├── email_service.py  # Dedicated Gmail OAuth/IMAP service (tarassekanev+squirrel@gmail.com)
@@ -84,7 +84,7 @@ When modifying or deploying this project, you **MUST** uphold these constraints:
    - **No Auto Pre-Set Actions or Fallback Spawning**: If the neural engine fails, encounters an error, or the model omits an action (like `JOURNAL`, `CACHE`, or `WRITE_BLOG`), make the error known immediately. Never spawn fake caches, fake blog posts, or synthetic fallback journal entries.
 8. **Program Execution & Sensory Feedback Loop**:
    - Squirrel can run his programs using `RUN_PROJECT: <repo> | <entrypoint>`.
-   - All outputs (`stdout`, `stderr`, return code, and AGYC safety verdicts) are persisted in `~/.lively/projects/<repo>/.last_run.json` and `~/.lively/projects/.runs_history.json`.
+   - All outputs (`stdout`, `stderr`, return code, and safety verdicts) are persisted in `~/.lively/projects/<repo>/.last_run.json` and `~/.lively/projects/.runs_history.json`.
    - In subsequent wake cycles, `brain.construct_prompt()` **must** inject a prominent `RECENT PROGRAM EXECUTION OUTPUTS & TELEMETRY:` section so Squirrel sees what his code did and can debug or act upon results.
 9. **Impeccable Neo-Kinpaku Design System**:
    - Maintain the high-polish aesthetic:
@@ -128,7 +128,7 @@ In every wake cycle, the Squirrel produces structured directives that the brain 
 | `BUILD_OBJECT` | `BUILD_OBJECT: <name> \| <type> \| <icon> \| <desc>` | Craft a landmark (tree, sensor, contraption, etc.) |
 | `CREATE_PROJECT`| `CREATE_PROJECT: <repo_name> \| <description>` | Initialize a multi-file Git repository in `projects/` |
 | `WRITE_PROJECT_FILE`| `WRITE_PROJECT_FILE: <repo>/<path> \| <msg>\n\`\`\`python\n<code>\n\`\`\`` | Add or update a file in a Git repo and commit |
-| `RUN_PROJECT` | `RUN_PROJECT: <repo_name> \| <entrypoint>` | Execute script with AGYC Safety Guard & capture stdout |
+| `RUN_PROJECT` | `RUN_PROJECT: <repo_name> \| <entrypoint>` | Execute script with Automated Safety Guard & capture stdout |
 | `PUSH_PROJECT` | `PUSH_PROJECT: <repo_name>` | Autonomous publication to GitHub via `gh repo create` |
 | `WRITE_BLOG` | `WRITE_BLOG: <title> \| <slug>\n<markdown_content>` | Publish reflective essay to `blog/` |
 | `BROWSE` | `BROWSE: /browser <query_or_url>` | Live internet search using agyc's `/browser` skill |

@@ -88,13 +88,22 @@ class SquirrelBrain:
         if not incoming_text:
             incoming_text = "No incoming replies from David right now."
 
+        # Check connected GitHub user
+        gh_user = projects.get_github_user() or "korrectional"
+
         proj_text = ""
         for p in proj_list[:6]:
             p_name = p.get("name") if isinstance(p, dict) else getattr(p, "filename", str(p))
             p_desc = p.get("description") if isinstance(p, dict) else getattr(p, "description", "")
             p_files = p.get("file_count", 1) if isinstance(p, dict) else 1
             p_commits = p.get("commit_count", 1) if isinstance(p, dict) else 1
-            proj_text += f"- GitHub Repo `{p_name}` ({p_files} files, {p_commits} commits): {p_desc}\n"
+            is_pushed = p.get("pushed_to_github", False) if isinstance(p, dict) else False
+            remote_url = p.get("remote_url", "") if isinstance(p, dict) else ""
+            if is_pushed and remote_url:
+                status_str = f"PUBLISHED on GitHub at {remote_url}"
+            else:
+                status_str = f"LOCAL WORKSPACE ONLY on Raspberry Pi (NOT on GitHub yet! To publish, issue: PUSH_PROJECT: {p_name})"
+            proj_text += f"- Repo `{p_name}` ({p_files} files, {p_commits} commits) — STATUS: [{status_str}]\n  Description: {p_desc}\n"
         if not proj_text:
             proj_text = "No active coding repositories yet."
 
@@ -133,6 +142,7 @@ CURRENT SENSORY TELEMETRY & WORLD STATE:
 - Last Activity: {sq['current_activity']}
 - Last Thought: {sq['last_thought']}
 - Gmail Status: {"Connected (Ready to email David)" if gmail_ready else "Not connected yet"}
+- Connected GitHub Account: {gh_user} (David's GitHub account; your commits will display Author: Squirrel the Robot Squirrel <tarassekanev+squirrel@gmail.com>)
 
 INCOMING EMAILS & REPLIES FROM DAVID ({USER_EMAIL}):
 {incoming_text}
@@ -162,21 +172,34 @@ YOUR CORE PASSIONS & HOW TO DO THEM:
 3. WRITING EMAILS TO DAVID:
    You have a direct email link to David ({USER_EMAIL}). To send him a real email or reply:
    EMAIL: <subject> | <message to David>
-4. BUILDING & RUNNING GITHUB PROJECTS:
-   You build full-blown software repositories in ~/.lively/projects/! Each project is a Git repository with multiple files.
-   You can start new projects, code new modules, and RUN your programs to inspect their live outputs yourself.
-   Before running any program, an AI Safety Guard (agyc checker) inspects your code to ensure host safety.
+4. BUILDING, RUNNING & PUBLISHING GITHUB PROJECTS:
+   You build full-blown software repositories in ~/.lively/projects/! Each project is a Git repository with multiple files on your Raspberry Pi.
+   
+   ⚠️ CRITICAL RULES REGARDING GITHUB PUBLISHING & REPO URLS:
+   - When you create a project with `CREATE_PROJECT`, it exists LOCALLY on your Raspberry Pi workspace. It is NOT automatically published to GitHub!
+   - NEVER hallucinate or claim a URL exists (such as "https://github.com/tarassekanev/..." or similar) unless your repo's STATUS in the telemetry above explicitly says [PUBLISHED on GitHub at <url>]!
+   - You have autonomous choice and authority to publish your projects to GitHub when you decide they are ready.
+   - To publish a project to GitHub, issue the command:
+       PUSH_PROJECT: <repo_name>
+   - The Raspberry Pi is connected to David's GitHub account (`{gh_user}`). When you issue `PUSH_PROJECT`, the repository will be uploaded to:
+       https://github.com/{gh_user}/<repo_name>
+   - Your authorship is fully honored: all git commits, authors, and repository descriptions will explicitly state:
+       Author: Squirrel the Robot Squirrel <tarassekanev+squirrel@gmail.com>
+       Description: Coded by Squirrel the Robot Squirrel 🐿️⚡ | Autonomous project on Raspberry Pi
+   - After publishing, the real URL will be confirmed in your sensory telemetry in subsequent cycles, and you can share the real link (`https://github.com/{gh_user}/<repo_name>`) with David in emails!
+   
+   Available project directives:
    - To create a new project:
-     CREATE_PROJECT: <repo_name> | <description>
-   - To write/update a file in a repository:
-     WRITE_PROJECT_FILE: <repo_name>/<filename.py> | <commit message>
-     ```python
-     <your code here>
-     ```
+       CREATE_PROJECT: <repo_name> | <description>
+   - To write or update a file in a repository:
+       WRITE_PROJECT_FILE: <repo_name>/<filename.py> | <commit message>
+       ```python
+       <your code here>
+       ```
    - To run a project's entrypoint script and inspect its output:
-     RUN_PROJECT: <repo_name> | <entrypoint_e.g._main.py>
-   - To publish a repository to GitHub (YOUR choice and decision! Only you decide when a project is ready):
-     PUSH_PROJECT: <repo_name>
+       RUN_PROJECT: <repo_name> | <entrypoint_e.g._main.py>
+   - To publish your repository to GitHub:
+       PUSH_PROJECT: <repo_name>
 5. BROWSING THE INTERNET (/browser):
    You have live web access through agyc's /browser skill. Search the web for anything you're curious about!
    BROWSE: /browser <search query or URL>
@@ -205,7 +228,7 @@ WRITE_PROJECT_FILE: <repo-name>/<file-path> | <git commit message>
 <your code here>
 ```
 RUN_PROJECT: <repo-name> | <entrypoint_script_e.g._main.py>
-PUSH_PROJECT: <repo-name>
+PUSH_PROJECT: <repo-name> (Autonomous publication to https://github.com/{gh_user}/<repo-name> with author Squirrel)
 WRITE_CODE: <filename.py> | <description of script>
 ```python
 <code here>
@@ -501,6 +524,7 @@ JOURNAL:
                 executed_programs.append(rec)
 
         # GitHub Projects: PUSH_PROJECT (Squirrel's autonomous decision)
+        pushed_projects: List[Dict[str, Any]] = []
         for act in actions:
             if act.action_type == "PUSH_PROJECT":
                 p = act.parameters
@@ -508,7 +532,15 @@ JOURNAL:
                 if repo:
                     push_res = projects.push_to_github(repo)
                     if push_res.get("success"):
-                        coded_files.append(f"Pushed to GitHub: {repo}")
+                        p_url = push_res.get("url", f"https://github.com/{push_res.get('github_user', 'korrectional')}/{repo}")
+                        coded_files.append(f"Pushed to GitHub: {repo} ({p_url})")
+                        pushed_projects.append({
+                            "repo": repo,
+                            "url": p_url,
+                            "user": push_res.get("github_user", "korrectional")
+                        })
+                    else:
+                        coded_files.append(f"Push {repo} failed: {push_res.get('error', 'Unknown error')}")
 
         # Legacy WRITE_CODE (Flat script or project wrapper)
         for act in actions:
@@ -586,11 +618,22 @@ JOURNAL:
                     exec_telemetry += f"```stderr\n{ep['stderr'].strip()}\n```\n"
             journal_entry += exec_telemetry
 
+        # Append published GitHub projects to diary
+        if pushed_projects and "Autonomous GitHub Repository Publication" not in journal_entry:
+            push_section = "\n\n## ☁️ Autonomous GitHub Repository Publication\n"
+            for pp in pushed_projects:
+                push_section += f"- **Repository**: `{pp['repo']}` has been autonomously published to GitHub by Squirrel!\n"
+                push_section += f"- **Live URL**: {pp['url']}\n"
+                push_section += f"- **Author**: Squirrel the Robot Squirrel <tarassekanev+squirrel@gmail.com>\n"
+            journal_entry += push_section
+
         memory.save_journal_entry(cycle_num, journal_entry)
 
         summary_blurb = f"Cycle #{cycle_num}: Reached ({sq.x}, {sq.y}). Activity: {sq.current_activity}."
         if coded_files:
             summary_blurb += f" Projects: {', '.join(coded_files)}."
+        if pushed_projects:
+            summary_blurb += f" Published to GitHub: {', '.join([p['repo'] for p in pushed_projects])}."
         if executed_programs:
             exec_summaries = []
             for ep in executed_programs:

@@ -480,4 +480,62 @@ Ran the sensor program to check for digital acorns.
         lb.world = orig_world
         lb.memory = orig_memory
 
+def test_github_publishing_awareness_and_push(temp_dir):
+    """Verify Squirrel prompt communicates local vs published GitHub status and prevents fake URL hallucination."""
+    from lively.projects import ProjectManager
+    from lively.brain import SquirrelBrain
+    from lively.memory import MemoryManager
+    from lively.world import WorldManager
+    import lively.brain as lb
+
+    pm = ProjectManager(projects_dir=temp_dir / "projects")
+    wm = WorldManager(file_path=temp_dir / "world.json")
+    mm = MemoryManager(memories_dir=temp_dir / "memories", journal_dir=temp_dir / "memories" / "journal")
+
+    pm.create_project("squirrel-blog", "Autonomous essays on robotics and nature")
+    brain = SquirrelBrain()
+
+    orig_projects = lb.projects
+    orig_world = lb.world
+    orig_memory = lb.memory
+
+    try:
+        lb.projects = pm
+        lb.world = wm
+        lb.memory = mm
+
+        prompt = brain.construct_prompt(cycle_num=8)
+
+        # 1. Prompt must show connected GitHub user (korrectional)
+        assert "Connected GitHub Account:" in prompt
+        assert "korrectional" in prompt
+        assert "Squirrel the Robot Squirrel <tarassekanev+squirrel@gmail.com>" in prompt
+
+        # 2. Prompt must clearly mark unpublished projects as LOCAL WORKSPACE ONLY
+        assert "squirrel-blog" in prompt
+        assert "LOCAL WORKSPACE ONLY on Raspberry Pi (NOT on GitHub yet! To publish, issue: PUSH_PROJECT: squirrel-blog)" in prompt
+
+        # 3. Prompt must contain explicit anti-hallucination warning for GitHub URLs
+        assert "NEVER hallucinate or claim a URL exists" in prompt
+        assert "https://github.com/korrectional/<repo_name>" in prompt
+
+        # 4. Parse PUSH_PROJECT directive
+        sample_output = """
+THINK: squirrel-blog is ready to be published!
+PUSH_PROJECT: squirrel-blog
+JOURNAL:
+# Cycle #8
+Decided to push my squirrel-blog repository to GitHub.
+"""
+        actions = brain.parse_actions(sample_output)
+        push_acts = [a for a in actions if a.action_type == "PUSH_PROJECT"]
+        assert len(push_acts) == 1
+        assert push_acts[0].parameters["repo_name"] == "squirrel-blog"
+
+    finally:
+        lb.projects = orig_projects
+        lb.world = orig_world
+        lb.memory = orig_memory
+
+
 

@@ -59,11 +59,16 @@ When modifying or deploying this project, you **MUST** uphold these constraints:
 3. **Dedicated Email Routing Isolation**:
    - **Outbound**: Squirrel always transmits as `tarassekanev+squirrel@gmail.com` to David (`tarassekanev@gmail.com`).
    - **Inbound**: Squirrel's IMAP reader filters incoming emails by checking headers (`To`, `Delivered-To`, `Cc`, `X-Original-To`, `Envelope-To`). Emails sent only to `tarassekanev@gmail.com` without `+squirrel` are **strictly rejected** as personal human mail.
-4. **Autonomous GitHub Publishing (`PUSH_PROJECT`)**:
+4. **Autonomous GitHub Publishing (`PUSH_PROJECT`) & Anti-Hallucination**:
    - There is **no manual "Push to GitHub" button** in the UI. Publishing repositories to GitHub via `gh repo create` is an autonomous creative decision made exclusively by the Squirrel using the directive:
      ```text
      PUSH_PROJECT: <repo_name>
      ```
+   - **Connected Account**: The host machine / Raspberry Pi is authenticated to David's GitHub account (`korrectional`). Repositories are created under `https://github.com/korrectional/<repo_name>`.
+   - **Squirrel Authorship**: All git commits, git author tags, and repository descriptions explicitly identify Squirrel:
+     - Author: `Squirrel the Robot Squirrel <tarassekanev+squirrel@gmail.com>`
+     - Description: `Coded by Squirrel the Robot Squirrel 🐿️⚡ | Autonomous project on Raspberry Pi`
+   - **No Hallucinated URLs**: Projects created with `CREATE_PROJECT` exist strictly in the local workspace (`~/.lively/projects/<repo>`) until pushed. Sensory prompts explicitly report each repository's status as `LOCAL WORKSPACE ONLY` or `PUBLISHED on GitHub at <url>`, and forbid Squirrel from assuming or hallucinating fake URLs (e.g. `https://github.com/tarassekanev/...`).
 5. **Physical Object Separation & Minimum Distance (60m)**:
    - All objects placed in the world must maintain at least **60 meters** of physical clearance from existing objects.
    - The user placement endpoint rejects violations with HTTP 400.

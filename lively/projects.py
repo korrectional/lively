@@ -47,7 +47,7 @@ class ProjectManager:
         if not (repo_dir / ".git").exists():
             self._run_git(repo_dir, "init", "-b", "main")
             self._run_git(repo_dir, "config", "user.name", "Squirrel the Robot Squirrel")
-            self._run_git(repo_dir, "config", "user.email", "squirrel@lively.local")
+            self._run_git(repo_dir, "config", "user.email", "tarassekanev+squirrel@gmail.com")
         
         self._run_git(repo_dir, "add", "-A")
         self._run_git(repo_dir, "commit", "-m", commit_msg)
@@ -236,12 +236,23 @@ if __name__ == "__main__":
                 # Remote status
                 code, remotes = self._run_git(p, "remote", "-v")
                 pushed_to_github = (code == 0 and "origin" in remotes)
+                remote_url = ""
+                if pushed_to_github:
+                    c, r_url = self._run_git(p, "remote", "get-url", "origin")
+                    if c == 0 and r_url:
+                        remote_url = r_url.strip()
+                        if remote_url.endswith(".git"):
+                            remote_url = remote_url[:-4]
+                    if not remote_url:
+                        remote_url = f"https://github.com/{self.get_github_user() or 'korrectional'}/{p.name}"
 
                 repos.append({
                     "name": p.name,
                     "description": desc,
                     "is_git": (p / ".git").exists(),
                     "pushed_to_github": pushed_to_github,
+                    "remote_url": remote_url,
+                    "github_user": self.get_github_user() or "korrectional",
                     "files": sorted(files),
                     "file_count": len(files),
                     "commit_count": commit_count,
@@ -299,12 +310,23 @@ if __name__ == "__main__":
         # Check remote origin
         code, remotes = self._run_git(repo_dir, "remote", "-v")
         pushed_to_github = (code == 0 and "origin" in remotes)
+        remote_url = ""
+        if pushed_to_github:
+            c, r_url = self._run_git(repo_dir, "remote", "get-url", "origin")
+            if c == 0 and r_url:
+                remote_url = r_url.strip()
+                if remote_url.endswith(".git"):
+                    remote_url = remote_url[:-4]
+            if not remote_url:
+                remote_url = f"https://github.com/{self.get_github_user() or 'korrectional'}/{clean_name}"
 
         return {
             "name": clean_name,
             "path": str(repo_dir),
             "is_git": (repo_dir / ".git").exists(),
             "pushed_to_github": pushed_to_github,
+            "remote_url": remote_url,
+            "github_user": self.get_github_user() or "korrectional",
             "files": sorted(files),
             "commits": commits,
             "readme": readme_text,
@@ -516,9 +538,29 @@ if __name__ == "__main__":
         })
         return res
 
+    def get_github_user(self) -> Optional[str]:
+        """Get authenticated GitHub user login from gh CLI if available."""
+        if hasattr(self, "_cached_github_user") and self._cached_github_user is not None:
+            return self._cached_github_user
+
+        gh_bin = shutil.which("gh")
+        if not gh_bin:
+            self._cached_github_user = None
+            return None
+        try:
+            res = subprocess.run([gh_bin, "api", "user", "--jq", ".login"], capture_output=True, text=True, timeout=5)
+            if res.returncode == 0 and res.stdout.strip():
+                self._cached_github_user = res.stdout.strip()
+                return self._cached_github_user
+        except Exception:
+            pass
+        self._cached_github_user = None
+        return None
+
     def push_to_github(self, repo_name: str) -> Dict[str, Any]:
         """
         Push local repository to remote GitHub account via gh CLI if authenticated.
+        Configures author identity as Squirrel and attaches to David's GitHub.
         """
         clean_name = Path(repo_name).name
         repo_dir = self.projects_dir / clean_name
@@ -529,23 +571,40 @@ if __name__ == "__main__":
         if not gh_bin:
             return {"success": False, "error": "GitHub CLI ('gh') not found on system."}
 
+        gh_user = self.get_github_user() or "korrectional"
+
+        # Explicitly configure git author so GitHub commits show Squirrel
+        self._run_git(repo_dir, "config", "user.name", "Squirrel the Robot Squirrel")
+        self._run_git(repo_dir, "config", "user.email", "tarassekanev+squirrel@gmail.com")
+
         # Check if already has a remote
         code, remotes = self._run_git(repo_dir, "remote", "-v")
         if code == 0 and "origin" in remotes:
             code, out = self._run_git(repo_dir, "push", "-u", "origin", "main")
-            return {"success": code == 0, "output": out}
+            c, r_url = self._run_git(repo_dir, "remote", "get-url", "origin")
+            url = r_url.strip() if c == 0 else f"https://github.com/{gh_user}/{clean_name}"
+            if url.endswith(".git"):
+                url = url[:-4]
+            return {"success": code == 0, "output": out, "url": url, "github_user": gh_user}
 
         try:
+            desc = f"Coded by Squirrel the Robot Squirrel 🐿️⚡ | Autonomous project on Raspberry Pi"
             res = subprocess.run(
-                [gh_bin, "repo", "create", clean_name, "--public", "--source=.", "--push"],
+                [gh_bin, "repo", "create", clean_name, "--public", "--source=.", "--push", "--description", desc],
                 cwd=str(repo_dir),
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=45
             )
+            c, r_url = self._run_git(repo_dir, "remote", "get-url", "origin")
+            url = r_url.strip() if c == 0 else f"https://github.com/{gh_user}/{clean_name}"
+            if url.endswith(".git"):
+                url = url[:-4]
             return {
                 "success": res.returncode == 0,
-                "output": (res.stdout or res.stderr).strip()
+                "output": (res.stdout or res.stderr).strip(),
+                "url": url,
+                "github_user": gh_user
             }
         except Exception as e:
             return {"success": False, "error": str(e)}

@@ -1113,15 +1113,16 @@ async function showProjectRepo(repoSummary) {
         const ghStatus = document.getElementById("repo-github-status");
         if (ghStatus) {
             if (repo.pushed_to_github) {
+                const remoteUrl = repo.remote_url || `https://github.com/${repo.github_user || 'korrectional'}/${repo.name}`;
                 ghStatus.className = "badge ready";
-                ghStatus.innerText = "☁️ Published on GitHub";
-                ghStatus.title = "Squirrel decided to publish this project to GitHub!";
+                ghStatus.innerHTML = `<a href="${remoteUrl}" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">☁️ GitHub: ${repo.github_user || 'korrectional'}/${repo.name} ↗</a>`;
+                ghStatus.title = `Squirrel autonomously published this project to GitHub at ${remoteUrl}!`;
             } else {
                 ghStatus.className = "badge";
                 ghStatus.style.background = "rgba(148,163,184,0.15)";
                 ghStatus.style.color = "#94a3b8";
                 ghStatus.innerText = "💻 Local Workspace (Squirrel's choice to publish)";
-                ghStatus.title = "Held in Squirrel's local workshop until he decides to publish.";
+                ghStatus.title = `Held locally on Raspberry Pi. Squirrel can publish to https://github.com/${repo.github_user || 'korrectional'}/${repo.name} anytime using PUSH_PROJECT: ${repo.name}.`;
             }
         }
 

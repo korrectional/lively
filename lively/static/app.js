@@ -138,13 +138,13 @@ function drawPillBadge(context, x, y, text, color = "#cbd5e1", bgColor = "rgba(1
 // Clean Emoji Canvas Sprites
 // ==========================================
 
-// 1. Robot Squirrel (Pure, clean 🐿️ emoji — cute, natural bobbing, facing direction, crisp emoji rendering, no glow)
+// 1. Robot Squirrel (Pure, clean 🐿️ emoji — cute, natural bobbing, facing direction, crisp emoji rendering, fully opaque)
 function drawSquirrelEmoji(c, x, y, size, heading, time) {
     c.save();
     c.translate(x, y);
 
     // Subtle grounding shadow (stationary on ground)
-    c.fillStyle = "rgba(0, 0, 0, 0.28)";
+    c.fillStyle = "rgba(0, 0, 0, 0.4)";
     c.beginPath();
     c.ellipse(0, size * 0.38, size * 0.38, size * 0.12, 0, 0, Math.PI * 2);
     c.fill();
@@ -152,6 +152,12 @@ function drawSquirrelEmoji(c, x, y, size, heading, time) {
     // Natural smooth bobbing animation
     const bob = Math.sin(time * 0.004) * 2.5;
     c.translate(0, bob);
+
+    // Solid occlusion backing disc so world grid/axis lines never show through
+    c.fillStyle = "#090b10";
+    c.beginPath();
+    c.arc(0, 0, size * 0.42, 0, Math.PI * 2);
+    c.fill();
 
     // Direction flip:
     // The standard 🐿️ emoji natively faces LEFT across platforms (Apple, Segoe UI, Noto).
@@ -166,7 +172,9 @@ function drawSquirrelEmoji(c, x, y, size, heading, time) {
     c.shadowBlur = 0;
     c.shadowColor = "transparent";
 
-    // Crisp emoji rendering
+    // Fully opaque solid emoji rendering
+    c.globalAlpha = 1.0;
+    c.fillStyle = "#ffffff";
     c.font = `${Math.round(size)}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
     c.textAlign = "center";
     c.textBaseline = "middle";
@@ -181,7 +189,7 @@ function drawObjectEmoji(c, x, y, size, obj, time) {
     c.translate(x, y);
 
     // Ground shadow for spatial depth
-    c.fillStyle = "rgba(0, 0, 0, 0.25)";
+    c.fillStyle = "rgba(0, 0, 0, 0.35)";
     c.beginPath();
     c.ellipse(0, size * 0.36, size * 0.4, size * 0.13, 0, 0, Math.PI * 2);
     c.fill();
@@ -189,6 +197,12 @@ function drawObjectEmoji(c, x, y, size, obj, time) {
     // Subtle floating bob
     const bob = Math.sin(time * 0.003 + (obj.x || 0)) * 1.5;
     c.translate(0, bob);
+
+    // Solid occlusion backing disc so world grid/axis lines never show through
+    c.fillStyle = "#090b10";
+    c.beginPath();
+    c.arc(0, 0, size * 0.42, 0, Math.PI * 2);
+    c.fill();
 
     let emoji = obj.icon || "";
     if (!emoji) {
@@ -202,6 +216,8 @@ function drawObjectEmoji(c, x, y, size, obj, time) {
 
     c.shadowBlur = 0;
     c.shadowColor = "transparent";
+    c.globalAlpha = 1.0;
+    c.fillStyle = "#ffffff";
     c.font = `${Math.round(size)}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
     c.textAlign = "center";
     c.textBaseline = "middle";

@@ -1057,9 +1057,12 @@ async function loadProjects() {
         repos.forEach(repo => {
             const item = document.createElement("div");
             item.className = "list-item";
+            const gitBadge = repo.pushed_to_github
+                ? `<span class="badge ready" style="font-size:0.75rem;">☁️ GitHub</span>`
+                : `<span class="badge" style="font-size:0.75rem; background:rgba(148,163,184,0.15); color:#94a3b8;">💻 Local</span>`;
             item.innerHTML = `
                 <div class="item-info">
-                    <div class="item-title">📁 <b>${escapeHtml(repo.name)}</b> <span class="badge ready" style="font-size:0.75rem;">Git (${repo.commit_count || 1})</span></div>
+                    <div class="item-title">📁 <b>${escapeHtml(repo.name)}</b> ${gitBadge} <span class="badge ready" style="font-size:0.75rem;">Git (${repo.commit_count || 1})</span></div>
                     <div class="item-subtitle">${escapeHtml(repo.description || "GitHub repository")}</div>
                     <div class="hint" style="font-size:0.78rem; margin-top:3px; color:#94a3b8;">
                         ${repo.file_count || 1} file(s) • Latest: <i>"${escapeHtml(repo.last_commit_msg || 'Initial commit')}"</i>
@@ -1095,6 +1098,22 @@ async function showProjectRepo(repoSummary) {
         document.getElementById("repo-commits-text").innerText = `${repo.commits ? repo.commits.length : 1} commit(s)`;
         const lastMsg = (repo.commits && repo.commits[0]) ? repo.commits[0].message : "Initial commit";
         document.getElementById("repo-last-commit-msg").innerText = `Latest: "${lastMsg}"`;
+
+        // GitHub publication badge
+        const ghStatus = document.getElementById("repo-github-status");
+        if (ghStatus) {
+            if (repo.pushed_to_github) {
+                ghStatus.className = "badge ready";
+                ghStatus.innerText = "☁️ Published on GitHub";
+                ghStatus.title = "Squirrel decided to publish this project to GitHub!";
+            } else {
+                ghStatus.className = "badge";
+                ghStatus.style.background = "rgba(148,163,184,0.15)";
+                ghStatus.style.color = "#94a3b8";
+                ghStatus.innerText = "💻 Local Workspace (Squirrel's choice to publish)";
+                ghStatus.title = "Held in Squirrel's local workshop until he decides to publish.";
+            }
+        }
 
         // Populate file dropdown
         const select = document.getElementById("repo-file-select");
@@ -1175,39 +1194,6 @@ if (btnRunCode) {
         } finally {
             btnRunCode.innerText = "▶ Run Program (AGYC Guarded)";
             btnRunCode.disabled = false;
-        }
-    });
-}
-
-// Push repository to GitHub
-const btnPushRepo = document.getElementById("btn-push-repo");
-if (btnPushRepo) {
-    btnPushRepo.addEventListener("click", async () => {
-        if (!state.selectedRepo) return;
-        btnPushRepo.innerText = "🚀 Pushing to GitHub...";
-        btnPushRepo.disabled = true;
-
-        try {
-            const res = await fetch(`/api/projects/${encodeURIComponent(state.selectedRepo.name)}/push`, {
-                method: "POST"
-            });
-            const out = await res.json();
-            const outputBox = document.getElementById("code-output");
-            const stdoutBox = document.getElementById("code-stdout");
-            if (outputBox) outputBox.classList.remove("hidden");
-
-            if (out.success) {
-                if (stdoutBox) stdoutBox.innerText = `[GitHub Push Success]\n${out.output || "Pushed main branch to GitHub remote repository."}`;
-                showNotification(`🚀 Repository '${state.selectedRepo.name}' pushed to GitHub!`);
-            } else {
-                if (stdoutBox) stdoutBox.innerText = `[GitHub Push Notice]\n${out.error || out.output || "GitHub CLI authentication required."}\n\nTo authenticate on the Pi, run:\ngh auth login`;
-                showNotification("⚠️ GitHub push status updated in console");
-            }
-        } catch (e) {
-            alert("Error pushing to GitHub: " + e);
-        } finally {
-            btnPushRepo.innerText = "🚀 Push to GitHub";
-            btnPushRepo.disabled = false;
         }
     });
 }

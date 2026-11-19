@@ -176,10 +176,15 @@ if __name__ == "__main__":
                 mtime = p.stat().st_mtime
                 ctime = p.stat().st_ctime
 
+                # Remote status
+                code, remotes = self._run_git(p, "remote", "-v")
+                pushed_to_github = (code == 0 and "origin" in remotes)
+
                 repos.append({
                     "name": p.name,
                     "description": desc,
                     "is_git": (p / ".git").exists(),
+                    "pushed_to_github": pushed_to_github,
                     "files": sorted(files),
                     "file_count": len(files),
                     "commit_count": commit_count,
@@ -233,10 +238,15 @@ if __name__ == "__main__":
             except Exception:
                 pass
 
+        # Check remote origin
+        code, remotes = self._run_git(repo_dir, "remote", "-v")
+        pushed_to_github = (code == 0 and "origin" in remotes)
+
         return {
             "name": clean_name,
             "path": str(repo_dir),
             "is_git": (repo_dir / ".git").exists(),
+            "pushed_to_github": pushed_to_github,
             "files": sorted(files),
             "commits": commits,
             "readme": readme_text,

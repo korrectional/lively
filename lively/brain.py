@@ -149,6 +149,8 @@ YOUR CORE PASSIONS & HOW TO DO THEM:
      ```
    - To run a project's entrypoint script:
      RUN_PROJECT: <repo_name> | <entrypoint_e.g._main.py>
+   - To publish a repository to GitHub (YOUR choice and decision! Only you decide when a project is ready):
+     PUSH_PROJECT: <repo_name>
 5. BROWSING THE INTERNET (/browser):
    You have live web access through agyc's /browser skill. Search the web for anything you're curious about!
    BROWSE: /browser <search query or URL>
@@ -177,6 +179,7 @@ WRITE_PROJECT_FILE: <repo-name>/<file-path> | <git commit message>
 <your code here>
 ```
 RUN_PROJECT: <repo-name> | <entrypoint_script_e.g._main.py>
+PUSH_PROJECT: <repo-name>
 WRITE_CODE: <filename.py> | <description of script>
 ```python
 <code here>
@@ -270,6 +273,15 @@ JOURNAL:
                 parameters={
                     "repo_name": match.group(1).strip(),
                     "entrypoint": (match.group(2) or "main.py").strip()
+                }
+            ))
+
+        # 6b. PUSH_PROJECT (Autonomous GitHub Publication by Squirrel)
+        for match in re.finditer(r"^PUSH_PROJECT:\s*([^\n]+)$", output_text, re.MULTILINE):
+            actions.append(SquirrelAction(
+                action_type="PUSH_PROJECT",
+                parameters={
+                    "repo_name": match.group(1).strip()
                 }
             ))
 
@@ -461,6 +473,16 @@ JOURNAL:
                     "safety": exec_res.safety_verdict
                 }
                 executed_programs.append(rec)
+
+        # GitHub Projects: PUSH_PROJECT (Squirrel's autonomous decision)
+        for act in actions:
+            if act.action_type == "PUSH_PROJECT":
+                p = act.parameters
+                repo = p.get("repo_name", "").strip()
+                if repo:
+                    push_res = projects.push_to_github(repo)
+                    if push_res.get("success"):
+                        coded_files.append(f"Pushed to GitHub: {repo}")
 
         # Legacy WRITE_CODE (Flat script or project wrapper)
         for act in actions:

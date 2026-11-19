@@ -39,16 +39,19 @@ class NewObjectRequest(BaseModel):
     description: str = ""
 
 class NewProjectRequest(BaseModel):
-    filename: str
-    code: str
+    repo_name: str = ""
+    filename: str = ""
+    code: str = ""
     description: str = ""
+    relative_path: str = ""
 
 class ScheduleChangeRequest(BaseModel):
     frequency: str  # paused, daily, twice_daily, four_daily, hourly, custom
     custom_on_calendar: Optional[str] = None
 
 class CodeRunRequest(BaseModel):
-    timeout: int = 5
+    entrypoint: str = "main.py"
+    timeout: int = 15
 
 async def broadcast(message: Dict[str, Any]):
     """Broadcast JSON payload to all connected clients."""
@@ -124,28 +127,83 @@ async def get_memories():
 
 @app.get("/api/projects")
 async def list_projects():
-    """List squirrel coded files."""
-    return [p.model_dump() for p in projects.list_projects()]
+    """List squirrel GitHub project repositories."""
+    return projects.list_projects()
+
+@app.get("/api/projects/{repo_name}")
+async def get_project_details(repo_name: str):
+    """Retrieve details, commits, and file tree for a project repository."""
+    proj = projects.get_project(repo_name)
+    if not proj:
+        raise HTTPException(status_code=404, detail=f"Project repository '{repo_name}' not found")
+    return proj
+
+@app.get("/api/projects/{repo_name}/file")
+async def get_project_file(repo_name: str, path: str = "main.py"):
+    """Get the source code of a specific file in a project repository."""
+    content = projects.get_file(repo_name, path)
+    if content is None:
+        raise HTTPException(status_code=404, detail=f"File '{path}' not found in project '{repo_name}'")
+    return {"repo": repo_name, "path": path, "content": content}
 
 @app.post("/api/projects")
-async def create_project(req: NewProjectRequest):
-    """Save a new script into the squirrel's project directory."""
-    proj = projects.save_project(
-        filename=req.filename,
-        code=req.code,
-        description=req.description
-    )
+async def create_or_save_project(req: NewProjectRequest):
+    """Create a new GitHub repository or save/update a file within a project."""
+    repo = req.repo_name or (req.filename.split(".")[0] if req.filename else "squirrel-project")
+    rel_path = req.relative_path or req.filename or "main.py"
+    
+    if req.code:
+        result = projects.save_file(
+            repo_name=repo,
+            relative_path=rel_path,
+            content=req.code,
+            commit_msg=req.description or f"Update {rel_path}"
+        )
+    else:
+        result = projects.create_project(repo_name=repo, description=req.description)
+
     await broadcast({
         "type": "project_added",
-        "project": proj.model_dump()
+        "repo": repo
     })
-    return proj.model_dump()
-
-@app.post("/api/projects/{filename}/run")
-async def run_project(filename: str, req: CodeRunRequest = CodeRunRequest()):
-    """Execute a squirrel python project and return output."""
-    result = projects.execute_project(filename, timeout_sec=req.timeout)
     return result
+
+@app.post("/api/projects/{repo_name}/run")
+async def run_project(repo_name: str, req: CodeRunRequest = CodeRunRequest()):
+    """Execute an entrypoint script within a project with AGYC Safety Checker."""
+    result = projects.execute_project(
+        repo_name=repo_name,
+        entrypoint=req.entrypoint,
+        timeout_sec=req.timeout
+    )
+    return result.model_dump()
+
+# Mind Logs & Thought Session Archives
+@app.get("/api/thoughts")
+async def list_thought_sessions(limit: int = 30):
+    """List archived thought sessions and AI cognition traces."""
+    return memory.get_thought_sessions(limit=limit)
+
+@app.get("/api/thoughts/{filename}")
+async def get_thought_session(filename: str):
+    """Get full session transcript for a specific wake cycle."""
+    session = memory.get_thought_session(filename)
+    if not session:
+        raise HTTPException(status_code=404, detail=f"Thought session '{filename}' not found")
+    return session
+
+# Incoming Emails & Two-way Communication
+@app.get("/api/email/inbox")
+async def get_email_inbox():
+    """Retrieve incoming email replies from David."""
+    return memory.get_received_emails()
+
+@app.post("/api/email/check")
+async def check_email_inbox():
+    """Trigger a live IMAP fetch to check for new email replies from David."""
+    loop = asyncio.get_event_loop()
+    emails = await loop.run_in_executor(None, email_service.fetch_incoming_emails, 5)
+    return {"success": True, "count": len(emails), "emails": emails}
 
 @app.post("/api/squirrel/wake")
 async def trigger_wake_cycle():

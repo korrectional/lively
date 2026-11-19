@@ -147,8 +147,8 @@
 
                 <!-- Tab: Live Squirrel Brain & Thinking Stream -->
                 <div id="tab-brain" class="tab-pane">
-                    <h3>Lively's Neural Deliberation</h3>
-                    <p class="hint">Watch the robot squirrel's stream of consciousness as it surveys the world, retrieves past memories, and decides what to do.</p>
+                    <h3>Squirrel's Neural Deliberation</h3>
+                    <p class="hint">Watch Squirrel's stream of consciousness as he surveys the world, retrieves past memories, and decides what to do.</p>
 
                     <div class="card">
                         <button id="btn-stream-think" class="btn primary full-width">⚡ Wake & Stream Thought Process</button>
@@ -160,49 +160,78 @@
                             <span id="think-status-badge" class="badge">Idle</span>
                         </div>
                         <div id="thought-console" class="thought-console-box">
-                            <div class="console-line system">> Lively neural core ready. Click above to stream thinking.</div>
+                            <div class="console-line system">> Squirrel neural core ready. Click above to stream thinking.</div>
                         </div>
+                    </div>
+
+                    <div class="card mt-2">
+                        <div class="code-header">
+                            <span class="code-title">📜 Archived Mind Logs (Session Transcripts)</span>
+                            <span id="mind-logs-count" class="badge">0 Sessions</span>
+                        </div>
+                        <p class="hint">Every wake cycle's full inner monologue, prompts, sensory telemetry, and decisions are preserved here.</p>
+                        <div id="thought-sessions-list" class="item-list mt-2"></div>
                     </div>
                 </div>
 
                 <!-- Tab: Squirrel Coding Workshop -->
                 <div id="tab-workshop" class="tab-pane">
-                    <h3>Squirrel's Coding Workshop</h3>
+                    <h3>Squirrel's Software Workshop</h3>
                     <div class="workspace-badge-bar">
-                        <span class="label">Workspace Directory:</span>
+                        <span class="label">GitHub Projects Dir:</span>
                         <code>~/.lively/projects/</code>
+                        <span class="badge ready" title="AI Safety Checker active">AGYC Guard Active 🛡️</span>
                     </div>
-                    <p class="hint">Scripts and programs coded by Lively for self-enjoyment and simulation tinkering.</p>
+                    <p class="hint">Full multi-file Git repositories created, maintained, and run by Squirrel for his own fulfillment.</p>
+                    
+                    <h4>GitHub Repositories (<span id="repo-count">0</span>)</h4>
                     <div id="project-list" class="item-list"></div>
 
-                    <form id="form-new-project" class="card mt-2">
-                        <h4>+ Start New Project File</h4>
-                        <div class="form-group">
-                            <label>Filename:</label>
-                            <input type="text" id="proj-new-filename" placeholder="e.g. acorn_orbit.py" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Description:</label>
-                            <input type="text" id="proj-new-desc" placeholder="What does this project do?">
-                        </div>
-                        <div class="form-group">
-                            <label>Python Code:</label>
-                            <textarea id="proj-new-code" rows="4" placeholder="# Python script code..."></textarea>
-                        </div>
-                        <button type="submit" class="btn primary full-width">Save to Squirrel Workspace</button>
-                    </form>
-
-                    <div id="code-viewer" class="card hidden mt-2">
+                    <!-- Selected Repository Inspector & Runner -->
+                    <div id="repo-viewer" class="card hidden mt-2">
                         <div class="code-header">
-                            <span id="code-filename" class="code-title">script.py</span>
-                            <button id="btn-run-code" class="btn small success">▶ Run Script</button>
+                            <span id="repo-title" class="code-title">📁 repository-name</span>
+                            <div class="header-actions">
+                                <span id="repo-git-badge" class="badge ready">Git: main</span>
+                                <button id="btn-run-code" class="btn small success">▶ Run Program (AGYC Guarded)</button>
+                            </div>
                         </div>
+                        <div id="repo-meta-bar" class="hint mt-2" style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+                            <span id="repo-commits-text">1 commit</span>
+                            <span id="repo-last-commit-msg" style="color:#f59e0b;">Initial commit</span>
+                        </div>
+                        
+                        <!-- File Selector Tabs/Dropdown -->
+                        <div class="form-group mt-2">
+                            <label>Repository File:</label>
+                            <select id="repo-file-select" style="background:#0f172a; color:#e2e8f0; border:1px solid #334155; padding:6px 10px; border-radius:6px; width:100%;"></select>
+                        </div>
+
                         <pre><code id="code-content"></code></pre>
-                        <div id="code-output" class="code-output-box hidden">
+                        
+                        <div id="code-output" class="code-output-box hidden mt-2">
                             <div class="output-title">Console Output:</div>
                             <pre><code id="code-stdout"></code></pre>
                         </div>
                     </div>
+
+                    <!-- Create New GitHub Project Repository -->
+                    <form id="form-new-project" class="card mt-2">
+                        <h4>+ Create New GitHub Project Repo</h4>
+                        <div class="form-group">
+                            <label>Repository Name:</label>
+                            <input type="text" id="proj-new-filename" placeholder="e.g. quantum-beacon-simulator" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Description (README):</label>
+                            <input type="text" id="proj-new-desc" placeholder="What does this repository do?">
+                        </div>
+                        <div class="form-group">
+                            <label>Initial main.py Code:</label>
+                            <textarea id="proj-new-code" rows="4" placeholder="# Python script code..."></textarea>
+                        </div>
+                        <button type="submit" class="btn primary full-width">Initialize Git Repo & Commit</button>
+                    </form>
                 </div>
 
                 <!-- Tab: Memories & Diary -->
@@ -233,6 +262,18 @@
                             <button id="btn-disconnect-gmail" class="btn small danger">Disconnect</button>
                         </div>
                         <div id="email-test-result" class="hint mt-2"></div>
+                    </div>
+
+                    <!-- Two-Way Communication & Received Replies -->
+                    <div class="card mt-2">
+                        <div class="code-header">
+                            <span class="code-title">📬 Replies from David (Two-Way Email)</span>
+                            <button id="btn-check-inbox" class="btn small primary">🔄 Check Inbox Now</button>
+                        </div>
+                        <p class="hint">When you reply to Squirrel's emails, he reads your message via IMAP, perceives your thoughts, and responds!</p>
+                        <div id="inbox-list" class="item-list mt-2">
+                            <p class="hint">No incoming replies recorded yet. Send an email or reply to Squirrel from your Gmail account!</p>
+                        </div>
                     </div>
 
                     <!-- Connect with App Password -->

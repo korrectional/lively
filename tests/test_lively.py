@@ -90,22 +90,91 @@ def test_memory_manager(temp_dir):
     assert len(caches) == 1
     assert caches[0]["name"] == "Spare Resistors"
 
+def test_security_checker():
+    from lively.security import check_safety
+    
+    # Safe code
+    safe_code = 'print("Hello from Squirrel!")\nx = 42\nprint(x * 2)'
+    v1 = check_safety(safe_code, target_name="safe.py", run_agyc=False)
+    assert v1.safe is True
+
+    # Dangerous command / breakout attempt
+    danger_code = 'import os\nos.system("rm -rf /")'
+    v2 = check_safety(danger_code, target_name="evil.py", run_agyc=False)
+    assert v2.safe is False
+    assert "critical" in v2.threat_level
+
+    # Credential theft
+    cred_code = 'with open("/etc/shadow") as f: print(f.read())'
+    v3 = check_safety(cred_code, target_name="hack.py", run_agyc=False)
+    assert v3.safe is False
+
 def test_project_manager(temp_dir):
+    from lively.projects import ProjectManager
     pm = ProjectManager(projects_dir=temp_dir / "projects")
 
     # Initial starter project
     projs = pm.list_projects()
     assert len(projs) >= 1
+    assert projs[0]["name"] == "acorn-radar"
 
-    # Save custom script
-    custom_code = 'print("Cyber Nut Acquired!")'
-    p = pm.save_project("test_nut.py", custom_code, "Testing print")
-    assert p.filename == "test_nut.py"
+    # Create new GitHub project repository
+    custom_code = 'print("Cyber Nut Acquired!")\ndef run():\n    return 42\nif __name__ == "__main__":\n    run()'
+    repo = pm.create_project("quantum-acorn", "A quantum nut repository")
+    assert repo["name"] == "quantum-acorn"
 
-    # Execute script
-    res = pm.execute_project("test_nut.py")
-    assert res["success"] is True
-    assert "Cyber Nut Acquired!" in res["stdout"]
+    pm.save_file("quantum-acorn", "main.py", custom_code, "Add main runner")
+    file_content = pm.get_file("quantum-acorn", "main.py")
+    assert "Cyber Nut Acquired!" in file_content
+
+    # Execute safe script
+    res = pm.execute_project("quantum-acorn", "main.py")
+    assert res.success is True
+    assert res.blocked is False
+    assert "Cyber Nut Acquired!" in res.stdout
+
+    # Test safety checker blocking dangerous script
+    evil_code = 'import os\nos.system("rm -rf /")'
+    pm.save_file("quantum-acorn", "evil.py", evil_code, "Malicious attempt")
+    res_evil = pm.execute_project("quantum-acorn", "evil.py")
+    assert res_evil.success is False
+    assert res_evil.blocked is True
+    assert "BLOCKED BY SAFETY CHECKER" in res_evil.error
+
+def test_thought_sessions_and_email_inbox(temp_dir):
+    from lively.memory import MemoryManager
+    mem_dir = temp_dir / "memories"
+    j_dir = mem_dir / "journal"
+    b_dir = temp_dir / "blog"
+    t_dir = temp_dir / "thoughts"
+    mm = MemoryManager(memories_dir=mem_dir, journal_dir=j_dir, blog_dir=b_dir, thoughts_dir=t_dir)
+
+    # Save thought session
+    session_file = mm.save_thought_session(
+        cycle_num=5,
+        raw_monologue="THINK: Contemplating tree acorns.\nMOVE_TO: 45, 45",
+        sensory_data={"squirrel_x": 0.0, "squirrel_y": 0.0, "battery": 95},
+        prompt="Sample prompt context",
+        actions=[{"action_type": "MOVE_TO", "parameters": {"x": 45, "y": 45}}],
+        results={"thoughts": ["Contemplating tree acorns."]}
+    )
+    assert session_file.exists()
+
+    sessions = mm.get_thought_sessions()
+    assert len(sessions) == 1
+    assert sessions[0]["cycle_number"] == 5
+    assert "Contemplating tree acorns" in sessions[0]["raw_monologue"]
+
+    # Incoming emails / replies from David
+    mm.log_received_email(
+        sender="David <tarassekanev@gmail.com>",
+        subject="Re: Hello from Squirrel",
+        body="Hey Squirrel! I loved your new acorn radar script. Keep exploring!",
+        date_str="Wed, 19 Nov 2026 01:20:00 -0500"
+    )
+    inbox = mm.get_received_emails()
+    assert len(inbox) == 1
+    assert "loved your new acorn radar" in inbox[0]["body"]
 
 def test_brain_action_parsing():
     brain = SquirrelBrain()
@@ -113,6 +182,13 @@ def test_brain_action_parsing():
 THINK: Sensing harmonic electromagnetic vibes in sector 4.
 MOVE_TO: 150.5, 200.0 | Scouting the northern boundary
 BUILD_OBJECT: Solar Acorn Array | contraption | Photovoltaic storage cells shaped like acorns
+CREATE_PROJECT: stellar-sensor | Solar and energetic radiation detector
+WRITE_PROJECT_FILE: stellar-sensor/detector.py | Photometric detector code
+```python
+def read_flux():
+    return 100
+```
+RUN_PROJECT: stellar-sensor | detector.py
 WRITE_CODE: sensor_read.py | Reads light intensity
 ```python
 def read_light():
@@ -131,11 +207,26 @@ Everything went smoothly today. Coded a light sensor.
     assert "THINK" in action_types
     assert "MOVE_TO" in action_types
     assert "BUILD_OBJECT" in action_types
+    assert "CREATE_PROJECT" in action_types
+    assert "WRITE_PROJECT_FILE" in action_types
+    assert "RUN_PROJECT" in action_types
     assert "WRITE_CODE" in action_types
     assert "LEAVE_NOTE" in action_types
     assert "CACHE" in action_types
     assert "EMAIL" in action_types
     assert "JOURNAL" in action_types
+
+    create_act = next(a for a in actions if a.action_type == "CREATE_PROJECT")
+    assert create_act.parameters["repo_name"] == "stellar-sensor"
+
+    proj_file_act = next(a for a in actions if a.action_type == "WRITE_PROJECT_FILE")
+    assert proj_file_act.parameters["repo_name"] == "stellar-sensor"
+    assert proj_file_act.parameters["file_path"] == "detector.py"
+    assert "def read_flux():" in proj_file_act.parameters["code"]
+
+    run_act = next(a for a in actions if a.action_type == "RUN_PROJECT")
+    assert run_act.parameters["repo_name"] == "stellar-sensor"
+    assert run_act.parameters["entrypoint"] == "detector.py"
 
     # Validate parameters
     move_act = next(a for a in actions if a.action_type == "MOVE_TO")

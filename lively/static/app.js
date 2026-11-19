@@ -129,324 +129,82 @@ function drawPillBadge(context, x, y, text, color = "#cbd5e1", bgColor = "rgba(1
 }
 
 // ==========================================
-// Procedural Canvas Sprites
+// Clean Emoji Canvas Sprites
 // ==========================================
 
-// 1. Robot Squirrel
-function drawRobotSquirrel(c, x, y, scale, heading, time) {
+// 1. Robot Squirrel (Pure, clean 🐿️ emoji — cute, natural bobbing, facing direction, crisp emoji rendering, no glow)
+function drawSquirrelEmoji(c, x, y, size, heading, time) {
     c.save();
     c.translate(x, y);
-    c.scale(scale, scale);
 
-    const bob = Math.sin(time * 0.004) * 2;
+    // Subtle grounding shadow (stationary on ground)
+    c.fillStyle = "rgba(0, 0, 0, 0.28)";
+    c.beginPath();
+    c.ellipse(0, size * 0.38, size * 0.38, size * 0.12, 0, 0, Math.PI * 2);
+    c.fill();
+
+    // Natural smooth bobbing animation
+    const bob = Math.sin(time * 0.004) * 2.5;
     c.translate(0, bob);
 
-    // Direction flip (if moving left vs right)
-    const facingLeft = (heading > 90 && heading < 270);
-    if (facingLeft) c.scale(-1, 1);
-
-    // Tail: Segmented mechanical tail
-    c.save();
-    c.translate(-14, 2);
-    c.rotate(-0.4 + Math.sin(time * 0.005) * 0.1);
-
-    // Outer tail curve (carbon/titanium segments)
-    c.fillStyle = "#475569";
-    c.beginPath();
-    c.arc(-8, -14, 18, 0, Math.PI * 1.6);
-    c.lineWidth = 9;
-    c.strokeStyle = "#334155";
-    c.stroke();
-
-    // Inner power line
-    c.strokeStyle = "#0891b2";
-    c.lineWidth = 2.5;
-    c.stroke();
-
-    // Small antenna tip at tail
-    c.fillStyle = "#f59e0b";
-    c.beginPath();
-    c.arc(-8, -32, 3, 0, Math.PI * 2);
-    c.fill();
-    c.restore();
-
-    // Squirrel Body: Brushed titanium pear
-    const bodyGrad = c.createLinearGradient(-10, -10, 10, 15);
-    bodyGrad.addColorStop(0, "#cbd5e1");
-    bodyGrad.addColorStop(0.5, "#94a3b8");
-    bodyGrad.addColorStop(1, "#64748b");
-    c.fillStyle = bodyGrad;
-    c.beginPath();
-    c.ellipse(0, 2, 12, 16, 0, 0, Math.PI * 2);
-    c.fill();
-    c.strokeStyle = "#475569";
-    c.lineWidth = 1;
-    c.stroke();
-
-    // Copper chest plate
-    c.fillStyle = "#f59e0b";
-    c.beginPath();
-    c.ellipse(3, 4, 6, 9, 0.1, 0, Math.PI * 2);
-    c.fill();
-
-    // Head
-    c.fillStyle = "#e2e8f0";
-    c.beginPath();
-    c.ellipse(6, -12, 10, 9, 0.2, 0, Math.PI * 2);
-    c.fill();
-
-    // Ears
-    c.fillStyle = "#94a3b8";
-    c.beginPath();
-    c.moveTo(2, -18);
-    c.lineTo(4, -26);
-    c.lineTo(8, -19);
-    c.fill();
-
-    // Eye: Non-glowing calm visor sensor with natural blink
-    const isBlinking = (Math.sin(time * 0.001) > 0.96);
-    c.fillStyle = isBlinking ? "#0891b2" : "#0284c7";
-    c.beginPath();
-    if (isBlinking) {
-        c.rect(7, -13, 6, 1.5);
-    } else {
-        c.ellipse(10, -13, 3.5, 3.5, 0, 0, Math.PI * 2);
+    // Direction flip:
+    // The standard 🐿️ emoji natively faces LEFT across platforms (Apple, Segoe UI, Noto).
+    // If heading is pointing east/right (-90° to +90° or dx >= 0), flip horizontally to face right.
+    const norm = ((heading % 360) + 360) % 360;
+    const movingLeft = (norm > 90 && norm < 270);
+    if (!movingLeft) {
+        c.scale(-1, 1);
     }
-    c.fill();
 
-    // Nose/snout
-    c.fillStyle = "#0f172a";
-    c.beginPath();
-    c.arc(15, -10, 2, 0, Math.PI * 2);
-    c.fill();
+    // Ensure absolutely no glow/shadow leakage
+    c.shadowBlur = 0;
+    c.shadowColor = "transparent";
 
-    // Paws holding a glowing Cyber Acorn
-    c.fillStyle = "#94a3b8";
-    c.beginPath();
-    c.arc(7, 2, 3, 0, Math.PI * 2);
-    c.fill();
-
-    // Golden Cyber Acorn
-    c.fillStyle = "#f59e0b";
-    c.beginPath();
-    c.arc(12, 3, 3.5, 0, Math.PI * 2);
-    c.fill();
-    c.fillStyle = "#78350f";
-    c.fillRect(10, -1, 4, 2);
-
-    c.restore();
-}
-
-// 2. Cyber Tree
-function drawCyberTree(c, x, y, scale) {
-    c.save();
-    c.translate(x, y);
-    c.scale(scale, scale);
-
-    // Drop shadow
-    c.fillStyle = "rgba(0, 0, 0, 0.4)";
-    c.beginPath();
-    c.ellipse(0, 16, 18, 7, 0, 0, Math.PI * 2);
-    c.fill();
-
-    // Trunk
-    c.fillStyle = "#334155";
-    c.fillRect(-4, 0, 8, 16);
-
-    // Glowing trunk circuit line
-    c.strokeStyle = "#10b981";
-    c.lineWidth = 1.5;
-    c.beginPath();
-    c.moveTo(0, 16);
-    c.lineTo(0, 2);
-    c.lineTo(-3, -2);
-    c.stroke();
-
-    // Canopy layers (Pine/Oak hybrid)
-    c.fillStyle = "#065f46";
-    c.beginPath();
-    c.arc(0, 4, 16, 0, Math.PI * 2);
-    c.fill();
-
-    c.fillStyle = "#047857";
-    c.beginPath();
-    c.arc(0, -6, 13, 0, Math.PI * 2);
-    c.fill();
-
-    c.fillStyle = "#10b981";
-    c.beginPath();
-    c.arc(0, -14, 9, 0, Math.PI * 2);
-    c.fill();
-
-    // Digital leaf accents
-    c.fillStyle = "#6ee7b7";
-    c.fillRect(-4, -8, 2, 2);
-    c.fillRect(5, -4, 2, 2);
-    c.fillRect(1, -16, 2, 2);
-
-    c.restore();
-}
-
-// 3. Telemetry Beacon / Sensor
-function drawBeacon(c, x, y, scale, time) {
-    c.save();
-    c.translate(x, y);
-    c.scale(scale, scale);
-
-    // Expanding radio wave ripple
-    const ripple = (time * 0.002) % 1;
-    c.strokeStyle = `rgba(6, 182, 212, ${1 - ripple})`;
-    c.lineWidth = 1.5;
-    c.beginPath();
-    c.arc(0, -12, ripple * 26, 0, Math.PI * 2);
-    c.stroke();
-
-    // Base
-    c.fillStyle = "#1e293b";
-    c.fillRect(-6, 8, 12, 4);
-
-    // Mast
-    c.strokeStyle = "#94a3b8";
-    c.lineWidth = 2.5;
-    c.beginPath();
-    c.moveTo(0, 8);
-    c.lineTo(0, -12);
-    c.stroke();
-
-    // Antenna dish
-    c.strokeStyle = "#06b6d4";
-    c.lineWidth = 2;
-    c.beginPath();
-    c.arc(0, -12, 6, Math.PI * 0.8, Math.PI * 2.2);
-    c.stroke();
-
-    // Blinking transmitter diode
-    c.fillStyle = (Math.sin(time * 0.01) > 0) ? "#ef4444" : "#22d3ee";
-    c.beginPath();
-    c.arc(0, -16, 2.5, 0, Math.PI * 2);
-    c.fill();
-
-    c.restore();
-}
-
-// 4. Nut Cache
-function drawCache(c, x, y, scale) {
-    c.save();
-    c.translate(x, y);
-    c.scale(scale, scale);
-
-    // Vault box
-    c.fillStyle = "#1e293b";
-    c.strokeStyle = "#f59e0b";
-    c.lineWidth = 1.5;
-    c.beginPath();
-    c.roundRect(-10, -6, 20, 14, 3);
-    c.fill();
-    c.stroke();
-
-    // Acorn icon on lid
-    c.fillStyle = "#f59e0b";
-    c.beginPath();
-    c.arc(0, 0, 3.5, 0, Math.PI * 2);
-    c.fill();
-
-    // Green status LED
-    c.fillStyle = "#10b981";
-    c.beginPath();
-    c.arc(6, -2, 1.5, 0, Math.PI * 2);
-    c.fill();
-
-    c.restore();
-}
-
-// 5. Holographic Note
-function drawNote(c, x, y, scale, time) {
-    c.save();
-    c.translate(x, y);
-    c.scale(scale, scale);
-
-    const bob = Math.sin(time * 0.003) * 2;
-    c.translate(0, bob);
-
-    // Hologram sheet
-    c.fillStyle = "rgba(6, 182, 212, 0.25)";
-    c.strokeStyle = "#06b6d4";
-    c.lineWidth = 1;
-    c.beginPath();
-    c.roundRect(-8, -11, 16, 22, 2);
-    c.fill();
-    c.stroke();
-
-    // Scan lines
-    c.strokeStyle = "rgba(255, 255, 255, 0.5)";
-    c.beginPath();
-    c.moveTo(-5, -6); c.lineTo(5, -6);
-    c.moveTo(-5, -2); c.lineTo(3, -2);
-    c.moveTo(-5, 2);  c.lineTo(4, 2);
-    c.moveTo(-5, 6);  c.lineTo(1, 6);
-    c.stroke();
-
-    c.restore();
-}
-
-// 6. Contraption
-function drawContraption(c, x, y, scale, time) {
-    c.save();
-    c.translate(x, y);
-    c.scale(scale, scale);
-
-    // Rotating gear
-    c.save();
-    c.rotate(time * 0.001);
-    c.strokeStyle = "#f59e0b";
-    c.lineWidth = 2;
-    c.beginPath();
-    c.arc(0, 0, 8, 0, Math.PI * 2);
-    c.stroke();
-    for (let i = 0; i < 6; i++) {
-        c.rotate(Math.PI / 3);
-        c.strokeRect(-2, -10, 4, 3);
-    }
-    c.restore();
-
-    // Center jewel
-    c.fillStyle = "#06b6d4";
-    c.beginPath();
-    c.arc(0, 0, 3, 0, Math.PI * 2);
-    c.fill();
-
-    c.restore();
-}
-
-// 7. Custom Object with User-Selected Icon
-function drawCustomIconObject(c, x, y, scale, icon, time) {
-    c.save();
-    c.translate(x, y);
-    c.scale(scale, scale);
-
-    // Subtle holographic circular base pedestal
-    c.fillStyle = "rgba(6, 182, 212, 0.15)";
-    c.strokeStyle = "rgba(6, 182, 212, 0.6)";
-    c.lineWidth = 1.2;
-    c.beginPath();
-    c.ellipse(0, 8, 14, 5, 0, 0, Math.PI * 2);
-    c.fill();
-    c.stroke();
-
-    // Gentle floating bob
-    const bob = Math.sin(time * 0.003) * 1.5;
-    c.translate(0, bob);
-
-    // Render Chosen Emoji Icon
-    c.font = "24px sans-serif";
+    // Crisp emoji rendering
+    c.font = `${Math.round(size)}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
     c.textAlign = "center";
     c.textBaseline = "middle";
-    c.fillText(icon, 0, -4);
+    c.fillText("🐿️", 0, 0);
 
     c.restore();
 }
 
-// 8. Player Avatar (Customizable Sci-Fi Explorer)
+// 2. World Object Emoji
+function drawObjectEmoji(c, x, y, size, obj, time) {
+    c.save();
+    c.translate(x, y);
+
+    // Ground shadow for spatial depth
+    c.fillStyle = "rgba(0, 0, 0, 0.25)";
+    c.beginPath();
+    c.ellipse(0, size * 0.36, size * 0.4, size * 0.13, 0, 0, Math.PI * 2);
+    c.fill();
+
+    // Subtle floating bob
+    const bob = Math.sin(time * 0.003 + (obj.x || 0)) * 1.5;
+    c.translate(0, bob);
+
+    let emoji = obj.icon || "";
+    if (!emoji) {
+        if (obj.type === "tree") emoji = "🌲";
+        else if (obj.type === "sensor") emoji = "📡";
+        else if (obj.type === "cache") emoji = "🌰";
+        else if (obj.type === "contraption") emoji = "⚙️";
+        else if (obj.type === "note") emoji = "📝";
+        else emoji = "📍";
+    }
+
+    c.shadowBlur = 0;
+    c.shadowColor = "transparent";
+    c.font = `${Math.round(size)}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.fillText(emoji, 0, 0);
+
+    c.restore();
+}
+
+// 3. Player / Explorer Avatar (Quantum Scout Spaceship & Explorer Models)
 function drawPlayer(c, x, y, scale, name, avatarType = "scout", time = 0) {
     c.save();
     c.translate(x, y);
@@ -580,7 +338,7 @@ function drawPlayer(c, x, y, scale, name, avatarType = "scout", time = 0) {
         c.fill();
 
     } else {
-        // --- 5. Quantum Scout Drone (Default) ---
+        // --- 5. Quantum Scout Spaceship (Default — beloved by user!) ---
         c.fillStyle = "rgba(0, 0, 0, 0.4)";
         c.beginPath();
         c.ellipse(0, 18 - hover * 0.5, 16, 5, 0, 0, Math.PI * 2);
@@ -637,10 +395,11 @@ function drawPlayer(c, x, y, scale, name, avatarType = "scout", time = 0) {
 // ==========================================
 // Object Clumping & Radial Layout
 // ==========================================
-function getObjectVisualOffsets(objects) {
-    // If multiple objects share coordinates (within 35m), fan them out radially
+function getObjectVisualOffsets(objects, zoom = 1.0) {
+    if (!objects || objects.length === 0) return new Map();
+    // If multiple objects share coordinates (within 35m) or are too close, fan them out radially
     const clusters = {};
-    const clusterDist = 35;
+    const clusterDist = Math.max(35, 40 / Math.max(0.1, zoom));
 
     objects.forEach(obj => {
         let placed = false;
@@ -665,7 +424,8 @@ function getObjectVisualOffsets(objects) {
             offsets.set(group[0].id, { x: group[0].x, y: group[0].y, isClustered: false });
         } else {
             const count = group.length;
-            const radius = 32; // Spread radius in world units
+            // Radius in world units, ensuring minimum 45 screen pixels spread
+            const radius = Math.max(35, 48 / Math.max(0.2, zoom));
             group.forEach((obj, idx) => {
                 const angle = (idx * (Math.PI * 2) / count) - (Math.PI / 2);
                 offsets.set(obj.id, {
@@ -776,7 +536,7 @@ function render(timestamp) {
     }
 
     // Calculate smart offsets for clustered objects
-    const objOffsets = getObjectVisualOffsets(state.world.objects);
+    const objOffsets = getObjectVisualOffsets(state.world.objects, zoom);
 
     // Draw World Objects
     state.world.objects.forEach(obj => {
@@ -787,7 +547,7 @@ function render(timestamp) {
         // Draw connecting leader line if fanned out
         if (offset.isClustered) {
             const originP = worldToScreen(obj.x, obj.y);
-            ctx.strokeStyle = "rgba(148, 163, 184, 0.25)";
+            ctx.strokeStyle = "rgba(148, 163, 184, 0.35)";
             ctx.lineWidth = 1;
             ctx.setLineDash([2, 4]);
             ctx.beginPath();
@@ -797,35 +557,18 @@ function render(timestamp) {
             ctx.setLineDash([]);
         }
 
-        // Render distinct sprite or user-chosen icon
-        if (obj.icon) {
-            drawCustomIconObject(ctx, p.x, p.y, spriteScale, obj.icon, time);
-        } else if (obj.type === "tree") {
-            drawCyberTree(ctx, p.x, p.y, spriteScale);
-        } else if (obj.type === "sensor") {
-            drawBeacon(ctx, p.x, p.y, spriteScale, time);
-        } else if (obj.type === "cache") {
-            drawCache(ctx, p.x, p.y, spriteScale);
-        } else if (obj.type === "note") {
-            drawNote(ctx, p.x, p.y, spriteScale, time);
-        } else if (obj.type === "contraption") {
-            drawContraption(ctx, p.x, p.y, spriteScale, time);
-        } else {
-            // Default Landmark
-            ctx.font = `${22 * zoom}px sans-serif`;
-            ctx.textAlign = "center";
-            ctx.fillText("📍", p.x, p.y);
-        }
+        // Render clean emoji object
+        drawObjectEmoji(ctx, p.x, p.y, 28 * spriteScale, obj, time);
 
         // Draw pill label badge (never raw overlapping text!)
         drawPillBadge(ctx, p.x, p.y + 24 * spriteScale, obj.name, "#cbd5e1");
     });
 
-    // Draw Robot Squirrel (No glow, no text floating on him!)
+    // Draw Robot Squirrel (Clean 🐿️ emoji — no glow, no text floating on him!)
     const sq = state.world.squirrel;
     const sqScreen = worldToScreen(sq.x, sq.y);
     const sqScale = Math.max(0.7, Math.min(2.0, zoom));
-    drawRobotSquirrel(ctx, sqScreen.x, sqScreen.y, sqScale, sq.heading, time);
+    drawSquirrelEmoji(ctx, sqScreen.x, sqScreen.y, 38 * sqScale, sq.heading, time);
 
     // Draw Other Users (filter out own ID and name so NEVER duplicate!)
     state.world.users.forEach(u => {
@@ -833,14 +576,14 @@ function render(timestamp) {
         if (u.name === state.user.name) return;
         const up = worldToScreen(u.x, u.y);
         drawPlayer(ctx, up.x, up.y, Math.max(0.6, Math.min(1.5, zoom)), u.name, u.avatar_type || "scout", time);
-        drawPillBadge(ctx, up.x, up.y - 28 * zoom, u.name, "#94a3b8");
+        drawPillBadge(ctx, up.x, up.y - 24 * zoom, u.name, "#94a3b8");
     });
 
-    // Draw Your Avatar (Interesting Sci-Fi Explorer)
+    // Draw Your Avatar (Quantum Scout Spaceship intact!)
     const userScreen = worldToScreen(state.user.x, state.user.y);
     const playerScale = Math.max(0.7, Math.min(1.8, zoom));
     drawPlayer(ctx, userScreen.x, userScreen.y, playerScale, state.user.name, state.avatarType, time);
-    drawPillBadge(ctx, userScreen.x, userScreen.y - 28 * playerScale, `${state.user.name} (You)`, "#38bdf8", "rgba(15, 23, 42, 0.9)", "rgba(6, 182, 212, 0.4)");
+    drawPillBadge(ctx, userScreen.x, userScreen.y - 26 * playerScale, `${state.user.name} (You)`, "#38bdf8", "rgba(15, 23, 42, 0.9)", "rgba(6, 182, 212, 0.4)");
 
     // Smooth movement towards target
     updateUserMovement();
@@ -1064,6 +807,8 @@ function handleWebSocketMessage(data) {
         loadProjects();
         loadMemories();
         loadBlogPosts();
+        loadThoughtSessions();
+        loadIncomingEmails();
         loadSystemInfo();
         showNotification("🌱 World & memories have been reset!");
     } else if (data.type === "squirrel_wake") {
@@ -1071,6 +816,8 @@ function handleWebSocketMessage(data) {
         loadProjects();
         loadMemories();
         loadBlogPosts();
+        loadThoughtSessions();
+        loadIncomingEmails();
         loadSystemInfo();
         showNotification("🐿️ Squirrel finished a wake cycle!");
     }
@@ -1273,68 +1020,148 @@ if (btnTestEmail) {
     });
 }
 
-// Projects & Code Workshop
+// ==========================================
+// GitHub Projects & Code Workshop
+// ==========================================
 async function loadProjects() {
     try {
         const res = await fetch("/api/projects");
-        const data = await res.json();
+        const repos = await res.json();
         const list = document.getElementById("project-list");
+        const countBadge = document.getElementById("repo-count");
+        if (countBadge) countBadge.innerText = repos.length;
+        if (!list) return;
         list.innerHTML = "";
 
-        if (data.length === 0) {
-            list.innerHTML = `<p class="hint">No projects coded yet.</p>`;
+        if (repos.length === 0) {
+            list.innerHTML = `<p class="hint">No repositories created yet.</p>`;
             return;
         }
 
-        data.forEach(p => {
+        repos.forEach(repo => {
             const item = document.createElement("div");
             item.className = "list-item";
             item.innerHTML = `
                 <div class="item-info">
-                    <div class="item-title">💻 ${p.filename}</div>
-                    <div class="item-subtitle">${p.description || "Created by Lively"}</div>
+                    <div class="item-title">📁 <b>${escapeHtml(repo.name)}</b> <span class="badge ready" style="font-size:0.75rem;">Git (${repo.commit_count || 1})</span></div>
+                    <div class="item-subtitle">${escapeHtml(repo.description || "GitHub repository")}</div>
+                    <div class="hint" style="font-size:0.78rem; margin-top:3px; color:#94a3b8;">
+                        ${repo.file_count || 1} file(s) • Latest: <i>"${escapeHtml(repo.last_commit_msg || 'Initial commit')}"</i>
+                    </div>
                 </div>
-                <button class="btn small primary">View Code</button>
+                <button class="btn small primary">Open Repo</button>
             `;
-            item.onclick = () => showProjectCode(p);
+            item.onclick = () => showProjectRepo(repo);
             list.appendChild(item);
         });
+
+        // If a repo is already selected, re-select it
+        if (state.selectedRepo) {
+            const matched = repos.find(r => r.name === state.selectedRepo.name);
+            if (matched) showProjectRepo(matched);
+        }
     } catch (e) {
         console.error("Load projects error:", e);
     }
 }
 
-function showProjectCode(project) {
-    state.selectedProject = project;
-    const viewer = document.getElementById("code-viewer");
-    viewer.classList.remove("hidden");
-    document.getElementById("code-filename").innerText = project.filename;
-    document.getElementById("code-content").innerText = project.code;
-    document.getElementById("code-output").classList.add("hidden");
+async function showProjectRepo(repoSummary) {
+    try {
+        const res = await fetch(`/api/projects/${encodeURIComponent(repoSummary.name)}`);
+        const repo = await res.json();
+        state.selectedRepo = repo;
+
+        const viewer = document.getElementById("repo-viewer");
+        if (!viewer) return;
+        viewer.classList.remove("hidden");
+
+        document.getElementById("repo-title").innerText = `📁 ${repo.name}`;
+        document.getElementById("repo-commits-text").innerText = `${repo.commits ? repo.commits.length : 1} commit(s)`;
+        const lastMsg = (repo.commits && repo.commits[0]) ? repo.commits[0].message : "Initial commit";
+        document.getElementById("repo-last-commit-msg").innerText = `Latest: "${lastMsg}"`;
+
+        // Populate file dropdown
+        const select = document.getElementById("repo-file-select");
+        select.innerHTML = "";
+        const files = repo.files || ["main.py"];
+        files.forEach(f => {
+            const opt = document.createElement("option");
+            opt.value = f;
+            opt.innerText = f;
+            if (f === "main.py") opt.selected = true;
+            select.appendChild(opt);
+        });
+
+        // Load primary code
+        const defaultFile = select.value || files[0] || "main.py";
+        loadRepoFile(repo.name, defaultFile);
+
+        const outputBox = document.getElementById("code-output");
+        if (outputBox) outputBox.classList.add("hidden");
+    } catch (e) {
+        console.error("Error showing repo:", e);
+    }
 }
 
-document.getElementById("btn-run-code").addEventListener("click", async () => {
-    if (!state.selectedProject) return;
-    const btn = document.getElementById("btn-run-code");
-    btn.innerText = "Running...";
-    btn.disabled = true;
-
+async function loadRepoFile(repoName, filePath) {
     try {
-        const res = await fetch(`/api/projects/${encodeURIComponent(state.selectedProject.filename)}/run`, {
-            method: "POST"
-        });
-        const out = await res.json();
-        const outputBox = document.getElementById("code-output");
-        outputBox.classList.remove("hidden");
-        document.getElementById("code-stdout").innerText =
-            out.stdout || out.stderr || out.error || "Script completed with no output.";
+        const res = await fetch(`/api/projects/${encodeURIComponent(repoName)}/file?path=${encodeURIComponent(filePath)}`);
+        const data = await res.json();
+        const codeBox = document.getElementById("code-content");
+        if (codeBox) codeBox.innerText = data.content || "# Empty file";
     } catch (e) {
-        alert("Error running code: " + e);
-    } finally {
-        btn.innerText = "▶ Run Script";
-        btn.disabled = false;
+        console.error("Error loading file:", e);
     }
-});
+}
+
+// File select change handler
+const repoFileSelect = document.getElementById("repo-file-select");
+if (repoFileSelect) {
+    repoFileSelect.addEventListener("change", (e) => {
+        if (state.selectedRepo) {
+            loadRepoFile(state.selectedRepo.name, e.target.value);
+        }
+    });
+}
+
+// Run program with AGYC Safety Checker
+const btnRunCode = document.getElementById("btn-run-code");
+if (btnRunCode) {
+    btnRunCode.addEventListener("click", async () => {
+        if (!state.selectedRepo) return;
+        const entrypoint = document.getElementById("repo-file-select") ? document.getElementById("repo-file-select").value : "main.py";
+        btnRunCode.innerText = "🛡️ Inspecting with Safety Guard...";
+        btnRunCode.disabled = true;
+
+        try {
+            const res = await fetch(`/api/projects/${encodeURIComponent(state.selectedRepo.name)}/run`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ entrypoint, timeout: 15 })
+            });
+            const out = await res.json();
+            const outputBox = document.getElementById("code-output");
+            const stdoutBox = document.getElementById("code-stdout");
+            outputBox.classList.remove("hidden");
+
+            if (out.blocked) {
+                stdoutBox.innerHTML = `<span style="color:#ef4444; font-weight:bold;">🛡️ EXECUTION BLOCKED BY AGYC SAFETY CHECKER:</span>\n${escapeHtml(out.error)}\nThreat Level: Critical | Sandbox Boundary Protected.`;
+                showNotification("⚠️ Program blocked by Safety Checker!");
+            } else if (out.success) {
+                let safetyNote = out.safety_verdict ? `\n[AGYC Safety: Approved - ${out.safety_verdict.reason}]` : "";
+                stdoutBox.innerText = (out.stdout || "Program completed with returncode 0.") + safetyNote;
+                showNotification(`▶ Program '${entrypoint}' finished successfully!`);
+            } else {
+                stdoutBox.innerText = out.stderr || out.error || "Program failed with non-zero exit code.";
+            }
+        } catch (e) {
+            alert("Error running code: " + e);
+        } finally {
+            btnRunCode.innerText = "▶ Run Program (AGYC Guarded)";
+            btnRunCode.disabled = false;
+        }
+    });
+}
 
 // Memories
 async function loadMemories() {
@@ -1402,6 +1229,124 @@ async function loadBlogPosts() {
     } catch (e) {
         console.error("Load blog posts error:", e);
     }
+}
+
+// ==========================================
+// Mind Logs & Session Transcripts
+// ==========================================
+async function loadThoughtSessions() {
+    const list = document.getElementById("thought-sessions-list");
+    const countBadge = document.getElementById("mind-logs-count");
+    if (!list) return;
+    try {
+        const res = await fetch("/api/thoughts");
+        const sessions = await res.json();
+        if (countBadge) countBadge.innerText = `${sessions.length} Sessions`;
+        list.innerHTML = "";
+
+        if (sessions.length === 0) {
+            list.innerHTML = `<p class="hint">No mind logs archived yet. Click "Wake & Stream Thought Process" above to log a session!</p>`;
+            return;
+        }
+
+        sessions.forEach(s => {
+            const item = document.createElement("div");
+            item.className = "list-item";
+            const dateStr = s.timestamp ? new Date(s.timestamp).toLocaleTimeString() : "";
+            item.innerHTML = `
+                <div class="item-info">
+                    <div class="item-title">🧠 <b>Wake Cycle #${s.cycle_number}</b> <small style="color:#f59e0b;">(${dateStr})</small></div>
+                    <div class="item-subtitle">"${escapeHtml(s.preview || 'Deliberation recorded.')}"</div>
+                    <div class="hint" style="font-size:0.75rem; color:#06b6d4;">${s.action_count || 0} action(s) materialized</div>
+                </div>
+                <button class="btn small">View Mind Log</button>
+            `;
+            item.onclick = () => showThoughtSessionModal(s);
+            list.appendChild(item);
+        });
+    } catch (e) {
+        console.error("Load thought sessions error:", e);
+    }
+}
+
+function showThoughtSessionModal(session) {
+    let actionsHtml = "";
+    if (session.actions && session.actions.length > 0) {
+        actionsHtml = "<h4>Materialized Actions:</h4><ul>";
+        session.actions.forEach(a => {
+            actionsHtml += `<li><b>${escapeHtml(a.action_type)}:</b> <code>${escapeHtml(JSON.stringify(a.parameters))}</code></li>`;
+        });
+        actionsHtml += "</ul>";
+    }
+
+    showModal(`
+        <h2>🧠 Squirrel Mind Log — Cycle #${session.cycle_number}</h2>
+        <p class="hint" style="color:#94a3b8;">Recorded: ${session.timestamp || 'N/A'}</p>
+        <hr style="border:0; border-top:1px solid #334155; margin:12px 0;">
+        <h4>Stream of Consciousness (Raw Deliberation):</h4>
+        <pre style="background:#090b10; border:1px solid #334155; padding:12px; border-radius:6px; color:#e2e8f0; font-family:monospace; max-height:260px; overflow-y:auto; white-space:pre-wrap;">${escapeHtml(session.raw_monologue || 'No monologue text.')}</pre>
+        ${actionsHtml}
+    `);
+}
+
+// ==========================================
+// Two-Way Gmail Inbox (Replies from David)
+// ==========================================
+async function loadIncomingEmails() {
+    const list = document.getElementById("inbox-list");
+    if (!list) return;
+    try {
+        const res = await fetch("/api/email/inbox");
+        const emails = await res.json();
+        list.innerHTML = "";
+
+        if (emails.length === 0) {
+            list.innerHTML = `<p class="hint">No incoming replies recorded yet. Reply to any of Squirrel's emails to talk with him!</p>`;
+            return;
+        }
+
+        emails.forEach(em => {
+            const item = document.createElement("div");
+            item.className = "list-item";
+            item.innerHTML = `
+                <div class="item-info">
+                    <div class="item-title">📩 <b>${escapeHtml(em.subject || 'No Subject')}</b></div>
+                    <div class="item-subtitle">${escapeHtml(em.body ? em.body.slice(0, 140) + '...' : '')}</div>
+                    <div class="hint" style="font-size:0.75rem; color:#94a3b8;">From: ${escapeHtml(em.sender || 'David')} • ${escapeHtml(em.date || '')}</div>
+                </div>
+            `;
+            item.onclick = () => {
+                showModal(`
+                    <h2>📩 ${escapeHtml(em.subject || 'Incoming Message')}</h2>
+                    <p><b>From:</b> ${escapeHtml(em.sender || 'David')} | <b>Date:</b> ${escapeHtml(em.date || '')}</p>
+                    <hr style="border:0; border-top:1px solid #334155; margin:12px 0;">
+                    <div class="markdown-body" style="white-space:pre-wrap; line-height:1.6;">${escapeHtml(em.body || '')}</div>
+                `);
+            };
+            list.appendChild(item);
+        });
+    } catch (e) {
+        console.error("Load inbox error:", e);
+    }
+}
+
+const btnCheckInbox = document.getElementById("btn-check-inbox");
+if (btnCheckInbox) {
+    btnCheckInbox.addEventListener("click", async () => {
+        btnCheckInbox.innerText = "Checking IMAP...";
+        btnCheckInbox.disabled = true;
+        try {
+            const res = await fetch("/api/email/check", { method: "POST" });
+            const data = await res.json();
+            loadIncomingEmails();
+            showNotification(`📬 Checked inbox: ${data.count || 0} messages synced!`);
+        } catch (e) {
+            alert("Error checking email inbox: " + e);
+        } finally {
+            btnCheckInbox.innerText = "🔄 Check Inbox Now";
+            btnCheckInbox.disabled = false;
+        }
+    });
 }
 
 function renderObjectList() {
@@ -1575,6 +1520,8 @@ function startThinkingStream() {
                 loadProjects();
                 loadMemories();
                 loadBlogPosts();
+                loadThoughtSessions();
+                loadIncomingEmails();
             }
         } catch (e) {
             console.error("Think stream error:", e);
@@ -1826,7 +1773,7 @@ const formNewProject = document.getElementById("form-new-project");
 if (formNewProject) {
     formNewProject.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const filename = document.getElementById("proj-new-filename").value.trim();
+        const repo_name = document.getElementById("proj-new-filename").value.trim();
         const desc = document.getElementById("proj-new-desc").value.trim();
         const code = document.getElementById("proj-new-code").value;
 
@@ -1834,17 +1781,17 @@ if (formNewProject) {
             const res = await fetch("/api/projects", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ filename, description: desc, code })
+                body: JSON.stringify({ repo_name, description: desc, code, filename: "main.py" })
             });
             if (res.ok) {
                 document.getElementById("proj-new-filename").value = "";
                 document.getElementById("proj-new-desc").value = "";
                 document.getElementById("proj-new-code").value = "";
                 loadProjects();
-                showNotification(`💻 Project '${filename}' saved to squirrel workspace!`);
+                showNotification(`📁 Repository '${repo_name}' created & committed!`);
             }
         } catch (err) {
-            alert("Error creating project: " + err);
+            alert("Error creating project repository: " + err);
         }
     });
 }
@@ -1877,6 +1824,8 @@ if (btnFactoryReset) {
                 loadProjects();
                 loadMemories();
                 loadBlogPosts();
+                loadThoughtSessions();
+                loadIncomingEmails();
                 loadSystemInfo();
                 showNotification("🌱 Factory reset complete!");
             }
@@ -1895,6 +1844,8 @@ fetchGmailStatus();
 loadProjects();
 loadMemories();
 loadBlogPosts();
+loadThoughtSessions();
+loadIncomingEmails();
 loadSchedule();
 loadSystemInfo();
 connectWebSocket();

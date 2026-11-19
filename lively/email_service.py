@@ -7,9 +7,12 @@ import json
 import base64
 import time
 import smtplib
+import imaplib
+import email
+from email.header import decode_header
 from urllib.parse import urlencode
 from email.mime.text import MIMEText
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pathlib import Path
 import requests
 
@@ -271,6 +274,71 @@ class EmailService:
             "success": False,
             "error": "Gmail is not configured. Open the Connect tab in the web UI to set up an App Password or OAuth link."
         }
+
+    @staticmethod
+    def _decode_mime_words(s: Optional[str]) -> str:
+        if not s:
+            return ""
+        decoded_fragments = decode_header(s)
+        parts = []
+        for fragment, encoding in decoded_fragments:
+            if isinstance(fragment, bytes):
+                parts.append(fragment.decode(encoding or "utf-8", errors="replace"))
+            else:
+                parts.append(str(fragment))
+        return "".join(parts)
+
+    @staticmethod
+    def _extract_body(msg) -> str:
+        body = ""
+        if msg.is_multipart():
+            for part in msg.walk():
+                ctype = part.get_content_type()
+                cdisp = str(part.get("Content-Disposition"))
+                if ctype == "text/plain" and "attachment" not in cdisp:
+                    payload = part.get_payload(decode=True)
+                    if payload:
+                        body = payload.decode(part.get_content_charset() or "utf-8", errors="replace")
+                        break
+        else:
+            payload = msg.get_payload(decode=True)
+            if payload:
+                body = payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
+        return body.strip()
+
+    def fetch_incoming_emails(self, max_count: int = 5) -> List[Dict[str, Any]]:
+        """Fetch incoming emails or replies from David to enable two-way conversation."""
+        cfg = self.get_settings()
+        if cfg.get("method") == "app_password" and cfg.get("app_password"):
+            user = cfg.get("user_email") or USER_EMAIL
+            pwd = cfg.get("app_password")
+            results = []
+            try:
+                with imaplib.IMAP4_SSL("imap.gmail.com", 993, timeout=12) as mail:
+                    mail.login(user, pwd)
+                    mail.select("INBOX", readonly=True)
+                    # Search for messages
+                    typ, data = mail.search(None, "ALL")
+                    if typ == "OK" and data[0]:
+                        msg_ids = data[0].split()
+                        recent_ids = msg_ids[-max_count:]
+                        for mid in reversed(recent_ids):
+                            res_typ, msg_data = mail.fetch(mid, "(RFC822)")
+                            if res_typ == "OK" and msg_data and msg_data[0]:
+                                raw_email = msg_data[0][1]
+                                msg = email.message_from_bytes(raw_email)
+                                sender = self._decode_mime_words(msg.get("From"))
+                                subject = self._decode_mime_words(msg.get("Subject"))
+                                date_str = msg.get("Date") or ""
+                                body = self._extract_body(msg)
+                                record = memory.log_received_email(sender, subject, body, date_str)
+                                results.append(record)
+                return results
+            except Exception as e:
+                print(f"[EmailService] IMAP incoming error: {e}")
+                return memory.get_received_emails()[:max_count]
+
+        return memory.get_received_emails()[:max_count]
 
 # Global singleton
 email_service = EmailService()

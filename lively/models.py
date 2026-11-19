@@ -49,8 +49,39 @@ class CodedProject(BaseModel):
     created_at: str = Field(default_factory=current_utc_iso)
     updated_at: str = Field(default_factory=current_utc_iso)
 
+class ProjectRepo(BaseModel):
+    name: str
+    description: str = ""
+    is_git: bool = True
+    files: List[str] = Field(default_factory=list)
+    commit_count: int = 1
+    last_commit_msg: str = "Initial commit"
+    readme: str = ""
+    created_at: str = Field(default_factory=current_utc_iso)
+    updated_at: str = Field(default_factory=current_utc_iso)
+
+class ProjectExecutionResult(BaseModel):
+    success: bool
+    blocked: bool = False
+    returncode: int = 0
+    stdout: str = ""
+    stderr: str = ""
+    safety_verdict: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+class ThoughtSession(BaseModel):
+    filename: str
+    cycle_number: int
+    timestamp: str
+    summary: str
+    sensory_scan: Dict[str, Any] = Field(default_factory=dict)
+    prompt_snippet: str = ""
+    raw_monologue: str = ""
+    actions: List[Dict[str, Any]] = Field(default_factory=list)
+    results: Dict[str, Any] = Field(default_factory=dict)
+
 class SquirrelAction(BaseModel):
-    action_type: str  # THINK, MOVE_TO, INSPECT, BUILD_OBJECT, WRITE_CODE, WRITE_BLOG, LEAVE_NOTE, CACHE, EMAIL, BROWSE, JOURNAL
+    action_type: str  # THINK, MOVE_TO, INSPECT, BUILD_OBJECT, WRITE_CODE, CREATE_PROJECT, WRITE_PROJECT_FILE, RUN_PROJECT, WRITE_BLOG, LEAVE_NOTE, CACHE, EMAIL, BROWSE, JOURNAL
     parameters: Dict[str, Any] = Field(default_factory=dict)
     raw_text: str = ""
 
@@ -66,3 +97,5 @@ class WakeCycleResult(BaseModel):
     built_objects: List[str] = Field(default_factory=list)
     blog_posts: List[str] = Field(default_factory=list)
     web_searches: List[Dict[str, str]] = Field(default_factory=list)
+    executed_programs: List[Dict[str, Any]] = Field(default_factory=list)
+    thought_log_file: str = ""

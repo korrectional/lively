@@ -12,6 +12,7 @@ from lively.config import (
     MEMORIES_DIR,
     JOURNAL_DIR,
     BLOG_DIR,
+    THOUGHTS_DIR,
     SENT_EMAILS_FILE,
     ensure_directories
 )
@@ -41,17 +42,20 @@ DEFAULT_SUMMARY = """# Squirrel's Long-Term Memory Summary
 class MemoryManager:
     """Handles read/write of persistent memory documents."""
 
-    def __init__(self, memories_dir: Path = MEMORIES_DIR, journal_dir: Path = JOURNAL_DIR, blog_dir: Path = BLOG_DIR):
+    def __init__(self, memories_dir: Path = MEMORIES_DIR, journal_dir: Path = JOURNAL_DIR, blog_dir: Path = BLOG_DIR, thoughts_dir: Path = THOUGHTS_DIR):
         self.memories_dir = Path(memories_dir)
         self.journal_dir = Path(journal_dir)
         self.blog_dir = Path(blog_dir)
+        self.thoughts_dir = Path(thoughts_dir)
         self.memories_dir.mkdir(parents=True, exist_ok=True)
         self.journal_dir.mkdir(parents=True, exist_ok=True)
         self.blog_dir.mkdir(parents=True, exist_ok=True)
+        self.thoughts_dir.mkdir(parents=True, exist_ok=True)
         self.identity_file = self.memories_dir / "identity.md"
         self.summary_file = self.memories_dir / "long_term_summary.md"
         self.caches_file = self.memories_dir / "caches.json"
         self.sent_emails_file = SENT_EMAILS_FILE
+        self.received_emails_file = self.memories_dir / "received_emails.json"
         self._init_files()
 
     def _init_files(self):
@@ -65,6 +69,8 @@ class MemoryManager:
             self.caches_file.write_text("[]", encoding="utf-8")
         if not self.sent_emails_file.exists():
             self.sent_emails_file.write_text("[]", encoding="utf-8")
+        if not self.received_emails_file.exists():
+            self.received_emails_file.write_text("[]", encoding="utf-8")
 
     def reset(self):
         """Wipe all journal logs, caches, emails, and reset summary to fresh origin."""
@@ -213,6 +219,136 @@ class MemoryManager:
             except Exception:
                 pass
         return posts
+
+    # ==========================================
+    # Thought Archive & Mind Logs (Each Session)
+    # ==========================================
+    def save_thought_session(
+        self,
+        cycle_num: int,
+        raw_monologue: str,
+        sensory_data: Dict[str, Any],
+        prompt: str,
+        actions: List[Any],
+        results: Dict[str, Any]
+    ) -> Path:
+        """Persist full session thoughts and deliberation log for user audit."""
+        self.thoughts_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        filename_base = f"cycle_{cycle_num:04d}_{timestamp}"
+
+        # 1. Save JSON object
+        json_file = self.thoughts_dir / f"{filename_base}.json"
+        actions_dict = []
+        for a in actions:
+            if hasattr(a, "model_dump"):
+                actions_dict.append(a.model_dump())
+            elif hasattr(a, "dict"):
+                actions_dict.append(a.dict())
+            elif isinstance(a, dict):
+                actions_dict.append(a)
+
+        data = {
+            "cycle_number": cycle_num,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "raw_monologue": raw_monologue,
+            "sensory_scan": sensory_data,
+            "prompt_snippet": prompt[:800],
+            "actions": actions_dict,
+            "results": results
+        }
+        json_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+        # 2. Save readable Markdown log
+        md_file = self.thoughts_dir / f"{filename_base}.md"
+        md_content = f"# Squirrel Mind Log — Cycle #{cycle_num}\n"
+        md_content += f"*Recorded at {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}*\n\n"
+        md_content += f"## 1. Sensory Scan & Awareness\n"
+        md_content += f"- **Position**: ({sensory_data.get('squirrel_x', 0)}, {sensory_data.get('squirrel_y', 0)})\n"
+        md_content += f"- **Battery**: {sensory_data.get('battery', 100)}%\n"
+        md_content += f"- **Nearby Entities**: {len(sensory_data.get('nearby_objects', []))} objects, {len(sensory_data.get('nearby_users', []))} visitors\n"
+        if sensory_data.get("unread_emails"):
+            md_content += f"- **Unread Emails**: {len(sensory_data.get('unread_emails'))} from David\n"
+        md_content += f"\n## 2. Stream of Consciousness (Raw Deliberation)\n```text\n{raw_monologue.strip()}\n```\n\n"
+        md_content += f"## 3. Decisions & Actions Materialized\n"
+        for a in actions_dict:
+            md_content += f"- **{a.get('action_type', 'ACTION')}**: `{a.get('parameters', {})}`\n"
+        md_file.write_text(md_content, encoding="utf-8")
+
+        return json_file
+
+    def get_thought_sessions(self, limit: int = 30) -> List[Dict[str, Any]]:
+        """List past thought sessions newest first."""
+        if not self.thoughts_dir.exists():
+            return []
+        sessions = []
+        for f in sorted(self.thoughts_dir.glob("*.json"), reverse=True)[:limit]:
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                monologue = data.get("raw_monologue", "")
+                preview = monologue.splitlines()[0] if monologue else "Cognitive cycle completed."
+                sessions.append({
+                    "filename": f.name,
+                    "cycle_number": data.get("cycle_number", 0),
+                    "timestamp": data.get("timestamp", ""),
+                    "preview": preview[:160],
+                    "action_count": len(data.get("actions", [])),
+                    "raw_monologue": monologue,
+                    "actions": data.get("actions", []),
+                    "results": data.get("results", {})
+                })
+            except Exception:
+                pass
+        return sessions
+
+    def get_thought_session(self, filename: str) -> Optional[Dict[str, Any]]:
+        """Retrieve single thought session."""
+        target = self.thoughts_dir / Path(filename).name
+        if target.exists() and target.is_file():
+            try:
+                return json.loads(target.read_text(encoding="utf-8"))
+            except Exception:
+                return None
+        return None
+
+    # ==========================================
+    # Received Emails (Replies from David)
+    # ==========================================
+    def get_received_emails(self) -> List[Dict[str, Any]]:
+        """List incoming email replies from David."""
+        if self.received_emails_file.exists():
+            try:
+                return json.loads(self.received_emails_file.read_text(encoding="utf-8"))
+            except Exception:
+                return []
+        return []
+
+    def log_received_email(self, sender: str, subject: str, body: str, date_str: str) -> Dict[str, Any]:
+        """Record an incoming email received from David."""
+        emails = self.get_received_emails()
+        # Avoid duplicate records by checking sender + subject + date
+        for e in emails:
+            if e.get("sender") == sender and e.get("subject") == subject and e.get("date") == date_str:
+                return e
+
+        record = {
+            "sender": sender,
+            "subject": subject,
+            "body": body,
+            "date": date_str,
+            "received_at": datetime.now(timezone.utc).isoformat(),
+            "read_by_squirrel": False
+        }
+        emails.insert(0, record)
+        self.received_emails_file.write_text(json.dumps(emails[:50], indent=2), encoding="utf-8")
+        return record
+
+    def mark_emails_read(self):
+        """Mark all received emails as read by Squirrel."""
+        emails = self.get_received_emails()
+        for e in emails:
+            e["read_by_squirrel"] = True
+        self.received_emails_file.write_text(json.dumps(emails, indent=2), encoding="utf-8")
 
 # Global singleton instance
 memory = MemoryManager()

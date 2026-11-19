@@ -13,6 +13,7 @@ MEMORIES_DIR = BASE_DATA_DIR / "memories"
 JOURNAL_DIR = MEMORIES_DIR / "journal"
 PROJECTS_DIR = BASE_DATA_DIR / "projects"
 BLOG_DIR = BASE_DATA_DIR / "blog"
+THOUGHTS_DIR = BASE_DATA_DIR / "thoughts"
 WORLD_FILE = BASE_DATA_DIR / "world.json"
 GMAIL_TOKEN_FILE = BASE_DATA_DIR / "gmail_token.json"
 GMAIL_CREDENTIALS_FILE = BASE_DATA_DIR / "gmail_credentials.json"
@@ -42,3 +43,4 @@ def ensure_directories():
     JOURNAL_DIR.mkdir(parents=True, exist_ok=True)
     PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
     BLOG_DIR.mkdir(parents=True, exist_ok=True)
+    THOUGHTS_DIR.mkdir(parents=True, exist_ok=True)

@@ -18,7 +18,7 @@ def reset():
     print(f" -> Squirrel Position: ({st['squirrel']['x']}, {st['squirrel']['y']})")
     print(f" -> Objects: {[o['name'] for o in st['objects']]}")
     print(f" -> Journals: {len(memory.get_all_journals())}")
-    print(f" -> Projects: {[p.filename for p in projects.list_projects()]}")
+    print(f" -> Projects: {[p.get('name') for p in projects.list_projects()]}")
 
 if __name__ == "__main__":
     reset()

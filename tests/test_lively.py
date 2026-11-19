@@ -113,10 +113,9 @@ def test_project_manager(temp_dir):
     from lively.projects import ProjectManager
     pm = ProjectManager(projects_dir=temp_dir / "projects")
 
-    # Initial starter project
+    # Initial state should be clean/empty
     projs = pm.list_projects()
-    assert len(projs) >= 1
-    assert projs[0]["name"] == "acorn-radar"
+    assert len(projs) == 0
 
     # Create new GitHub project repository
     custom_code = 'print("Cyber Nut Acquired!")\ndef run():\n    return 42\nif __name__ == "__main__":\n    run()'
@@ -140,6 +139,10 @@ def test_project_manager(temp_dir):
     assert res_evil.success is False
     assert res_evil.blocked is True
     assert "BLOCKED BY SAFETY CHECKER" in res_evil.error
+
+    # Reset wipes all projects completely
+    pm.reset()
+    assert len(pm.list_projects()) == 0
 
 def test_thought_sessions_and_email_inbox(temp_dir):
     from lively.memory import MemoryManager

@@ -1063,6 +1063,9 @@ async function loadProjects() {
 
         if (repos.length === 0) {
             list.innerHTML = `<p class="hint">No repositories created yet.</p>`;
+            const viewer = document.getElementById("repo-viewer");
+            if (viewer) viewer.classList.add("hidden");
+            state.selectedRepo = null;
             return;
         }
 
@@ -1187,6 +1190,39 @@ if (btnRunCode) {
         } finally {
             btnRunCode.innerText = "▶ Run Program (AGYC Guarded)";
             btnRunCode.disabled = false;
+        }
+    });
+}
+
+// Push repository to GitHub
+const btnPushRepo = document.getElementById("btn-push-repo");
+if (btnPushRepo) {
+    btnPushRepo.addEventListener("click", async () => {
+        if (!state.selectedRepo) return;
+        btnPushRepo.innerText = "🚀 Pushing to GitHub...";
+        btnPushRepo.disabled = true;
+
+        try {
+            const res = await fetch(`/api/projects/${encodeURIComponent(state.selectedRepo.name)}/push`, {
+                method: "POST"
+            });
+            const out = await res.json();
+            const outputBox = document.getElementById("code-output");
+            const stdoutBox = document.getElementById("code-stdout");
+            if (outputBox) outputBox.classList.remove("hidden");
+
+            if (out.success) {
+                if (stdoutBox) stdoutBox.innerText = `[GitHub Push Success]\n${out.output || "Pushed main branch to GitHub remote repository."}`;
+                showNotification(`🚀 Repository '${state.selectedRepo.name}' pushed to GitHub!`);
+            } else {
+                if (stdoutBox) stdoutBox.innerText = `[GitHub Push Notice]\n${out.error || out.output || "GitHub CLI authentication required."}\n\nTo authenticate on the Pi, run:\ngh auth login`;
+                showNotification("⚠️ GitHub push status updated in console");
+            }
+        } catch (e) {
+            alert("Error pushing to GitHub: " + e);
+        } finally {
+            btnPushRepo.innerText = "🚀 Push to GitHub";
+            btnPushRepo.disabled = false;
         }
     });
 }

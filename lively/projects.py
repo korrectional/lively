@@ -23,7 +23,6 @@ class ProjectManager:
         self.projects_dir = Path(projects_dir)
         self.projects_dir.mkdir(parents=True, exist_ok=True)
         ensure_directories()
-        self._ensure_starter_projects()
 
     def _run_git(self, repo_dir: Path, *args) -> tuple[int, str]:
         """Execute git command within a repository directory."""
@@ -120,17 +119,24 @@ if __name__ == "__main__":
             self._init_git_repo(starter_repo, "feat: Initial commit for Acorn Radar project")
 
     def reset(self):
-        """Wipe all projects and restore the starter repository."""
+        """Wipe all projects completely."""
+        def _handle_remove_readonly(func, path, exc):
+            try:
+                import stat
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+            except Exception:
+                pass
+
         if self.projects_dir.exists():
             for item in self.projects_dir.iterdir():
                 try:
                     if item.is_dir():
-                        shutil.rmtree(item)
+                        shutil.rmtree(item, onerror=_handle_remove_readonly)
                     else:
                         item.unlink()
                 except Exception:
                     pass
-        self._ensure_starter_projects()
 
     def list_projects(self) -> List[Dict[str, Any]]:
         """List all GitHub project repositories in the workspace."""
@@ -387,6 +393,40 @@ if __name__ == "__main__":
                 error=f"Execution failed: {e}",
                 safety_verdict=verdict.model_dump()
             )
+
+    def push_to_github(self, repo_name: str) -> Dict[str, Any]:
+        """
+        Push local repository to remote GitHub account via gh CLI if authenticated.
+        """
+        clean_name = Path(repo_name).name
+        repo_dir = self.projects_dir / clean_name
+        if not repo_dir.exists():
+            return {"success": False, "error": f"Repository '{clean_name}' not found."}
+
+        gh_bin = shutil.which("gh")
+        if not gh_bin:
+            return {"success": False, "error": "GitHub CLI ('gh') not found on system."}
+
+        # Check if already has a remote
+        code, remotes = self._run_git(repo_dir, "remote", "-v")
+        if code == 0 and "origin" in remotes:
+            code, out = self._run_git(repo_dir, "push", "-u", "origin", "main")
+            return {"success": code == 0, "output": out}
+
+        try:
+            res = subprocess.run(
+                [gh_bin, "repo", "create", clean_name, "--public", "--source=.", "--push"],
+                cwd=str(repo_dir),
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            return {
+                "success": res.returncode == 0,
+                "output": (res.stdout or res.stderr).strip()
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
 # Global singleton
 projects = ProjectManager()

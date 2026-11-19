@@ -192,6 +192,12 @@ async def run_project(repo_name: str, req: CodeRunRequest = CodeRunRequest()):
     )
     return result.model_dump()
 
+@app.post("/api/projects/{repo_name}/push")
+async def push_project(repo_name: str):
+    """Push local Git repository to GitHub via gh CLI."""
+    result = projects.push_to_github(repo_name)
+    return result
+
 # Mind Logs & Thought Session Archives
 @app.get("/api/thoughts")
 async def list_thought_sessions(limit: int = 30):

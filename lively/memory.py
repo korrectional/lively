@@ -210,36 +210,63 @@ class MemoryManager:
     def save_blog_post(self, title: str, content: str, slug: Optional[str] = None) -> Path:
         """Save a new blog post authored by Squirrel."""
         self.blog_dir.mkdir(parents=True, exist_ok=True)
-        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        now_dt = datetime.now(timezone.utc)
+        date_str = now_dt.strftime("%Y-%m-%d")
+        iso_str = now_dt.isoformat()
         if not slug:
             safe_slug = "".join(c if c.isalnum() or c == "-" else "_" for c in title.lower()[:30]).strip("-_")
             slug = f"{date_str}_{safe_slug or 'post'}"
         if not slug.endswith(".md"):
             slug += ".md"
         filepath = self.blog_dir / slug
-        header = f"# {title}\n*Published on {date_str} by Squirrel 🐿️*\n\n"
+        header = f"# {title}\n*Published on {now_dt.strftime('%b %d, %Y • %H:%M UTC')} by Squirrel 🐿️*\n<!-- created_at: {iso_str} -->\n\n"
         filepath.write_text(header + content.strip(), encoding="utf-8")
         return filepath
 
     def get_blog_posts(self) -> List[Dict[str, Any]]:
-        """List all blog posts."""
+        """List all blog posts sorted chronologically by time written (latest first)."""
         if not self.blog_dir.exists():
             return []
         posts = []
-        for f in sorted(self.blog_dir.glob("*.md"), reverse=True):
+        for f in self.blog_dir.glob("*.md"):
             try:
                 text = f.read_text(encoding="utf-8")
                 lines = [l.strip() for l in text.splitlines() if l.strip()]
                 title = lines[0].lstrip("#").strip() if lines else f.stem
+
+                # 1. Check for explicit created_at metadata comment
+                created_ts = None
+                meta_match = re.search(r"<!--\s*created_at:\s*([^\s>]+)\s*-->", text)
+                if meta_match:
+                    try:
+                        created_ts = datetime.fromisoformat(meta_match.group(1)).timestamp()
+                    except Exception:
+                        pass
+
+                # 2. Check file modification / write timestamp
+                if created_ts is None:
+                    try:
+                        created_ts = f.stat().st_mtime
+                    except Exception:
+                        created_ts = 0.0
+
+                created_iso = datetime.fromtimestamp(created_ts, tz=timezone.utc).isoformat()
+                formatted_date = datetime.fromtimestamp(created_ts, tz=timezone.utc).strftime("%b %d, %Y • %H:%M UTC")
+
                 posts.append({
                     "slug": f.name,
                     "title": title,
                     "content": text,
                     "preview": text[:220] + ("..." if len(text) > 220 else ""),
-                    "created_at": datetime.fromtimestamp(f.stat().st_ctime, tz=timezone.utc).isoformat()
+                    "timestamp": created_ts,
+                    "created_at": created_iso,
+                    "formatted_date": formatted_date
                 })
             except Exception:
                 pass
+
+        # Sort strictly by time written (newest first)
+        posts.sort(key=lambda p: p.get("timestamp", 0), reverse=True)
         return posts
 
     # ==========================================

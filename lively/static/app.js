@@ -1273,17 +1273,24 @@ async function loadBlogPosts() {
             return;
         }
 
+        // Sort by time written (latest first)
+        posts.sort((a, b) => (b.timestamp || new Date(b.created_at).getTime()) - (a.timestamp || new Date(a.created_at).getTime()));
+
         posts.forEach(p => {
             const item = document.createElement("div");
             item.className = "list-item";
+            const dateDisplay = p.formatted_date || (p.created_at ? new Date(p.created_at).toLocaleString() : "");
             item.innerHTML = `
                 <div class="item-info">
-                    <div class="item-title">✍️ ${escapeHtml(p.title || p.filename)}</div>
-                    <div class="item-subtitle">${escapeHtml(p.preview || "")}</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                        <div class="item-title">✍️ ${escapeHtml(p.title || p.slug || p.filename)}</div>
+                        ${dateDisplay ? `<span class="badge" style="font-size:0.7rem; color:#94a3b8; background:rgba(148,163,184,0.1); white-space:nowrap;">🕒 ${escapeHtml(dateDisplay)}</span>` : ""}
+                    </div>
+                    <div class="item-subtitle" style="margin-top:4px;">${escapeHtml(p.preview || "")}</div>
                 </div>
             `;
             item.onclick = () => {
-                showModal(`<h2>✍️ ${escapeHtml(p.title || p.filename)}</h2><div class="markdown-body" style="white-space:pre-wrap; line-height:1.6;">${escapeHtml(p.content)}</div>`);
+                showModal(`<h2>✍️ ${escapeHtml(p.title || p.slug || p.filename)}</h2><div style="color:var(--text-muted); font-size:0.85rem; margin-bottom:14px; display:flex; align-items:center; gap:6px;"><span>🕒 Written:</span> <strong>${escapeHtml(dateDisplay)}</strong></div><div class="markdown-body" style="white-space:pre-wrap; line-height:1.6;">${escapeHtml(p.content)}</div>`);
             };
             list.appendChild(item);
         });

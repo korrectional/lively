@@ -391,6 +391,23 @@ def test_blog_and_custom_icon_parsing(temp_dir):
     assert len(posts) == 1
     assert posts[0]["title"] == "Why Robot Squirrels Love Quantum Antennas"
 
+    # Save a second post written slightly later with a filename that would alphabetically sort BEFORE the first
+    import time
+    time.sleep(0.05)
+    post_file_2 = mm.save_blog_post(
+        title="A Philosophical Pinecone",
+        content="Contemplations on silicon pinecones and autonomous life.",
+        slug="a_pinecone"
+    )
+    assert post_file_2.exists()
+
+    posts = mm.get_blog_posts()
+    assert len(posts) == 2
+    # The newer post ("A Philosophical Pinecone") must be first despite starting with "a_" alphabetically
+    assert posts[0]["title"] == "A Philosophical Pinecone"
+    assert posts[1]["title"] == "Why Robot Squirrels Love Quantum Antennas"
+    assert posts[0]["timestamp"] >= posts[1]["timestamp"]
+
     # Test brain parsing WRITE_BLOG and BUILD_OBJECT with custom icon
     brain = SquirrelBrain()
     sample = """

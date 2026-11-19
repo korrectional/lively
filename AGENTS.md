@@ -77,7 +77,7 @@ When modifying or deploying this project, you **MUST** uphold these constraints:
    - Coordinates entered with decimals or clicked on the map get auto-rounded (`Math.round` / `round(float(x))`).
    - `<input type="number" step="any">` is used in HTML so browser step validation never blocks submissions.
 7. **AGYC Reasoning Effort Set to `high`**:
-   - When querying the LLM core via `agyc` or `agy`, pass `--effort high` and use a 180-second timeout:
+   - When querying the LLM core via `agyc` or `agy`, pass `--effort high` and use a 600-second timeout:
      ```python
      cmd.extend(["--effort", "high"])
      ```

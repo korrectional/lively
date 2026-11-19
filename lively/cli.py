@@ -63,6 +63,14 @@ def cmd_think(args):
     print("✅ SQUIRREL THINKING & ACTION CYCLE COMPLETED")
     print("="*60 + "\n")
 
+def cmd_reset(args):
+    """Reset world, memories, and projects to factory origin."""
+    print("🧹 Resetting Lively: clearing memories, world objects, and restoring TreeberryPine...")
+    world.reset()
+    memory.reset()
+    projects.reset()
+    print("✅ Reset complete! TreeberryPine spawned at (45, 45). Lively is at (0, 0) with fresh memory.")
+
 def cmd_status(args):
     """Display system status."""
     st = world.get_state()
@@ -144,6 +152,10 @@ def main():
     # think
     p_think = subparsers.add_parser("think", help="Watch the squirrel think in real-time")
     p_think.set_defaults(func=cmd_think)
+
+    # reset
+    p_reset = subparsers.add_parser("reset", help="Reset all memories, objects, and restore TreeberryPine")
+    p_reset.set_defaults(func=cmd_reset)
 
     # status
     p_status = subparsers.add_parser("status", help="Show Lively telemetry and status")

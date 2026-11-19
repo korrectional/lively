@@ -64,6 +64,19 @@ async def get_world_state():
     """Retrieve full spatial state."""
     return world.get_state()
 
+@app.post("/api/world/reset")
+async def reset_world():
+    """Reset world, memories, and projects to origin."""
+    world.reset()
+    memory.reset()
+    projects.reset()
+    st = world.get_state()
+    await broadcast({
+        "type": "world_reset",
+        "world": st
+    })
+    return {"success": True, "world": st}
+
 @app.post("/api/objects")
 async def add_world_object(req: NewObjectRequest):
     """Add a new object or landmark to the world."""

@@ -229,43 +229,46 @@ JOURNAL:
                 activity = act.parameters.get("activity", "Scampering")
                 world.move_squirrel(tx, ty, thought=sq.last_thought, activity=activity)
 
-        # Building objects
+        # Building objects with physical clearance
         for act in actions:
             if act.action_type == "BUILD_OBJECT":
                 p = act.parameters
+                bx, by = world.find_open_coordinates(sq.x, sq.y)
                 obj = world.add_object(
                     name=p.get("name", "Squirrel Landmark"),
-                    x=sq.x,
-                    y=sq.y,
+                    x=bx,
+                    y=by,
                     obj_type=p.get("type", "contraption"),
                     description=p.get("description", "Crafted by Lively"),
                     created_by="squirrel"
                 )
                 built_objects.append(obj.name)
 
-        # Leaving notes
+        # Leaving notes with physical clearance
         for act in actions:
             if act.action_type == "LEAVE_NOTE":
                 text = act.parameters.get("text", "")
+                nx, ny = world.find_open_coordinates(sq.x, sq.y)
                 world.add_object(
-                    name=f"Note from Lively",
-                    x=sq.x,
-                    y=sq.y,
+                    name="Note from Lively",
+                    x=nx,
+                    y=ny,
                     obj_type="note",
                     description=text,
                     created_by="squirrel",
                     metadata={"note": text}
                 )
 
-        # Caching
+        # Caching with physical clearance
         for act in actions:
             if act.action_type == "CACHE":
                 p = act.parameters
-                memory.add_cache(p.get("name", "Cyber Nut"), sq.x, sq.y, p.get("details", ""))
+                cx, cy = world.find_open_coordinates(sq.x, sq.y)
+                memory.add_cache(p.get("name", "Cyber Nut"), cx, cy, p.get("details", ""))
                 world.add_object(
                     name=f"Cache: {p.get('name')}",
-                    x=sq.x,
-                    y=sq.y,
+                    x=cx,
+                    y=cy,
                     obj_type="cache",
                     description=p.get("details", "Secret cache"),
                     created_by="squirrel"

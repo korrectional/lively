@@ -62,6 +62,19 @@ class MemoryManager:
         if not self.sent_emails_file.exists():
             self.sent_emails_file.write_text("[]", encoding="utf-8")
 
+    def reset(self):
+        """Wipe all journal logs, caches, emails, and reset summary to fresh origin."""
+        if self.journal_dir.exists():
+            for f in self.journal_dir.glob("*.md"):
+                try:
+                    f.unlink()
+                except Exception:
+                    pass
+        self.summary_file.write_text(DEFAULT_SUMMARY.strip(), encoding="utf-8")
+        self.caches_file.write_text("[]", encoding="utf-8")
+        self.sent_emails_file.write_text("[]", encoding="utf-8")
+        self.identity_file.write_text(DEFAULT_IDENTITY.strip(), encoding="utf-8")
+
     def get_identity(self) -> str:
         """Read core identity."""
         if self.identity_file.exists():

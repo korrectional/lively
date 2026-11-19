@@ -20,6 +20,8 @@ from lively.config import (
 )
 from lively.models import WorldObject, SquirrelState, UserAvatar
 
+MIN_PHYSICAL_CLEARANCE = 30.0
+
 class WorldManager:
     """Manages the 2D world coordinates, landmarks, and entity states."""
 
@@ -45,19 +47,56 @@ class WorldManager:
                         k: WorldObject(**v) for k, v in data.get("objects", {}).items()
                     }
                     self._last_loaded_mtime = mtime
+                    # Ensure TreeberryPine exists
+                    self._ensure_treeberry_pine()
                     return
             except Exception as e:
                 print(f"[WorldManager] Error loading world file ({e}), initializing fresh world.")
 
-        # Fresh plain 2D world
-        self.squirrel = SquirrelState(
-            x=0.0,
-            y=0.0,
-            heading=0.0,
-            last_thought="Booted up in a vast open plain. Ready to explore."
-        )
-        self.objects = {}
-        self._save()
+        # Initialize fresh world
+        self.reset()
+
+    def _ensure_treeberry_pine(self):
+        """Ensure the ancestral TreeberryPine tree is present."""
+        has_treeberry = any(o.name.lower() == "treeberrypine" for o in self.objects.values())
+        if not has_treeberry:
+            pine = WorldObject(
+                id="obj_treeberry_pine",
+                name="TreeberryPine",
+                x=45.0,
+                y=45.0,
+                type="tree",
+                description="The sacred ancestral TreeberryPine tree — majestic, lush, and full of digital pinecones and perches.",
+                created_by="nature"
+            )
+            self.objects[pine.id] = pine
+            self._save()
+
+    def reset(self):
+        """Reset world to initial state: removes all physical objects and spawns TreeberryPine."""
+        with self._lock:
+            self.squirrel = SquirrelState(
+                x=0.0,
+                y=0.0,
+                heading=0.0,
+                battery=100,
+                current_activity="Resting near TreeberryPine",
+                last_thought="Awakening fresh in the meadow next to the TreeberryPine.",
+                total_cycles=0,
+                total_distance_traveled=0.0
+            )
+            self.objects = {}
+            pine = WorldObject(
+                id="obj_treeberry_pine",
+                name="TreeberryPine",
+                x=45.0,
+                y=45.0,
+                type="tree",
+                description="The sacred ancestral TreeberryPine tree — majestic, lush, and full of digital pinecones and perches.",
+                created_by="nature"
+            )
+            self.objects[pine.id] = pine
+            self._save()
 
     def _save(self):
         """Persist state to disk safely."""
@@ -68,6 +107,38 @@ class WorldManager:
             }, f, indent=2)
         if self.file_path.exists():
             self._last_loaded_mtime = self.file_path.stat().st_mtime
+
+    def find_open_coordinates(self, target_x: float, target_y: float, min_clearance: float = MIN_PHYSICAL_CLEARANCE) -> tuple[float, float]:
+        """
+        Enforces physical spatial separation.
+        If target_x, target_y is too close to an existing physical object (< min_clearance),
+        searches in concentric rings for the nearest vacant coordinate.
+        """
+        tx = max(WORLD_MIN_X, min(WORLD_MAX_X, float(target_x)))
+        ty = max(WORLD_MIN_Y, min(WORLD_MAX_Y, float(target_y)))
+
+        def is_clear(cx, cy):
+            for obj in self.objects.values():
+                if math.hypot(obj.x - cx, obj.y - cy) < min_clearance:
+                    return False
+            return True
+
+        if is_clear(tx, ty):
+            return (round(tx, 1), round(ty, 1))
+
+        # Search outward in concentric rings
+        radii = [min_clearance, min_clearance * 1.5, min_clearance * 2.0, min_clearance * 3.0]
+        angles = [0, 45, 90, 135, 180, 225, 270, 315]
+
+        for r in radii:
+            for deg in angles:
+                rad = math.radians(deg)
+                cx = max(WORLD_MIN_X, min(WORLD_MAX_X, tx + r * math.cos(rad)))
+                cy = max(WORLD_MIN_Y, min(WORLD_MAX_Y, ty + r * math.sin(rad)))
+                if is_clear(cx, cy):
+                    return (round(cx, 1), round(cy, 1))
+
+        return (round(tx + min_clearance, 1), round(ty + min_clearance, 1))
 
     def _check_reload(self):
         """Reload from disk if file was updated by another process."""
@@ -98,16 +169,16 @@ class WorldManager:
 
     def add_object(self, name: str, x: float, y: float, obj_type: str = "landmark",
                    description: str = "", created_by: str = "user", metadata: Optional[dict] = None) -> WorldObject:
-        """Add a landmark or object to the map."""
+        """Add a landmark or object to the map with guaranteed physical separation."""
         with self._lock:
             obj_id = f"obj_{uuid.uuid4().hex[:8]}"
-            clamped_x = max(WORLD_MIN_X, min(WORLD_MAX_X, float(x)))
-            clamped_y = max(WORLD_MIN_Y, min(WORLD_MAX_Y, float(y)))
+            # Ensure physical separation: objects cannot occupy the exact same place
+            actual_x, actual_y = self.find_open_coordinates(x, y, min_clearance=MIN_PHYSICAL_CLEARANCE)
             obj = WorldObject(
                 id=obj_id,
                 name=name,
-                x=clamped_x,
-                y=clamped_y,
+                x=actual_x,
+                y=actual_y,
                 type=obj_type,
                 description=description,
                 created_by=created_by,

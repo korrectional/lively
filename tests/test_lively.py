@@ -22,35 +22,48 @@ def test_world_manager(temp_dir):
     w_file = temp_dir / "world.json"
     wm = WorldManager(file_path=w_file)
 
-    # Initial state
+    # Initial state should always spawn TreeberryPine
     state = wm.get_state()
     assert state["squirrel"]["x"] == 0.0
     assert state["squirrel"]["y"] == 0.0
-    assert len(state["objects"]) == 0
+    assert len(state["objects"]) == 1
+    assert state["objects"][0]["name"] == "TreeberryPine"
 
-    # Add object
-    obj = wm.add_object("Cyber Tree", 120.0, -80.0, "tree", "A tall digital oak")
-    assert obj.name == "Cyber Tree"
-    assert obj.x == 120.0
-    assert obj.y == -80.0
+    # Add object with physical separation
+    obj1 = wm.add_object("Cyber Beacon", 120.0, -80.0, "sensor", "Beacon 1")
+    assert obj1.name == "Cyber Beacon"
+    assert obj1.x == 120.0
+    assert obj1.y == -80.0
+
+    # Adding second object at EXACT SAME SPOT (120, -80) must be nudged away
+    obj2 = wm.add_object("Duplicate Beacon", 120.0, -80.0, "sensor", "Beacon 2")
+    assert (obj2.x != 120.0 or obj2.y != -80.0)
+    import math
+    dist = math.hypot(obj2.x - obj1.x, obj2.y - obj1.y)
+    assert dist >= 25.0  # Physically separate
 
     # Check nearby objects
     nearby = wm.get_nearby_objects(100.0, -80.0, max_dist=50.0)
-    assert len(nearby) == 1
-    assert nearby[0]["name"] == "Cyber Tree"
-    assert nearby[0]["distance"] == 20.0
+    assert any(o["name"] == "Cyber Beacon" for o in nearby)
 
     # Move squirrel
-    sq = wm.move_squirrel(120.0, -80.0, thought="Reaching the Cyber Tree", activity="Climbing")
+    sq = wm.move_squirrel(120.0, -80.0, thought="Reaching the Cyber Beacon", activity="Climbing")
     assert sq.x == 120.0
     assert sq.y == -80.0
-    assert sq.last_thought == "Reaching the Cyber Tree"
+    assert sq.last_thought == "Reaching the Cyber Beacon"
     assert sq.total_distance_traveled > 0
 
     # Bounds clamping
     sq_clamped = wm.move_squirrel(5000.0, -5000.0)
     assert sq_clamped.x == 1000.0
     assert sq_clamped.y == -1000.0
+
+    # Reset
+    wm.reset()
+    st_reset = wm.get_state()
+    assert len(st_reset["objects"]) == 1
+    assert st_reset["objects"][0]["name"] == "TreeberryPine"
+    assert st_reset["squirrel"]["x"] == 0.0
 
 def test_memory_manager(temp_dir):
     mem_dir = temp_dir / "memories"

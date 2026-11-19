@@ -54,6 +54,16 @@ if __name__ == "__main__":
                 description="My first sensor radar script to scan for shiny electronic nuts!"
             )
 
+    def reset(self):
+        """Wipe all squirrel-coded projects and restore starter radar script."""
+        if self.projects_dir.exists():
+            for f in self.projects_dir.glob("*.*"):
+                try:
+                    f.unlink()
+                except Exception:
+                    pass
+        self._ensure_starter_projects()
+
     def list_projects(self) -> List[CodedProject]:
         """List all projects created by the squirrel."""
         projects = []

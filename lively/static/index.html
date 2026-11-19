@@ -17,13 +17,15 @@
                 <span class="subtitle">Autonomous Robot Squirrel</span>
             </div>
             <div class="header-stats">
-                <div class="stat"><span class="label">Squirrel Pos:</span> <span id="stat-squirrel-pos" class="val">(0, 0)</span></div>
-                <div class="stat"><span class="label">Your Pos:</span> <span id="stat-user-pos" class="val">(0, 0)</span></div>
+                <div class="stat"><span class="label">Squirrel:</span> <span id="stat-squirrel-pos" class="val">(0, 0)</span></div>
+                <div class="stat"><span class="label">You:</span> <span id="stat-user-pos" class="val">(0, 0)</span></div>
                 <div class="stat"><span class="label">Battery:</span> <span id="stat-battery" class="val">100%</span></div>
                 <div class="stat"><span class="label">Gmail:</span> <span id="stat-gmail" class="val badge">Checking...</span></div>
             </div>
             <div class="header-actions">
-                <button id="btn-wake" class="btn primary" title="Trigger a cognitive wake cycle right now">⚡ Wake Squirrel</button>
+                <button id="btn-focus-squirrel" class="btn small" title="Center camera on Lively">🎯 Find Lively</button>
+                <button id="btn-focus-user" class="btn small" title="Center camera on You">🧑‍🚀 Find Me</button>
+                <button id="btn-wake" class="btn primary" title="Trigger an immediate cognitive wake cycle">⚡ Wake Squirrel</button>
                 <button id="btn-toggle-sidebar" class="btn">☰ Control Deck</button>
             </div>
         </header>
@@ -39,11 +41,17 @@
                 <div id="activity-text" class="thought-activity">Resting in cyber tree</div>
             </div>
 
+            <!-- Mini Map Overlay -->
+            <div id="minimap-container">
+                <canvas id="minimap-canvas" width="160" height="160"></canvas>
+                <div class="minimap-label">WORLD MAP (2000×2000)</div>
+            </div>
+
             <!-- Controls overlay -->
             <div id="canvas-hint">
-                <span>Move: <b>WASD</b> or <b>Arrow Keys</b> or <b>Click on Map</b></span> |
-                <span>Pan: <b>Drag canvas</b></span> |
-                <span>Zoom: <b>Scroll wheel</b></span>
+                <span>Move: <b>WASD</b> / <b>Arrow Keys</b> / <b>Click Map</b></span> |
+                <span>Pan: <b>Drag Map</b></span> |
+                <span>Zoom: <b>Scroll Wheel</b></span>
             </div>
         </main>
 
@@ -53,14 +61,14 @@
                 <button class="tab-btn active" data-tab="tab-world">🗺️ World</button>
                 <button class="tab-btn" data-tab="tab-workshop">💻 Workshop</button>
                 <button class="tab-btn" data-tab="tab-memories">📖 Diary</button>
-                <button class="tab-btn" data-tab="tab-settings">⚙️ Connect</button>
+                <button class="tab-btn" data-tab="tab-settings">✉️ Gmail</button>
             </div>
 
             <div class="sidebar-content">
                 <!-- Tab: World Builder -->
                 <div id="tab-world" class="tab-pane active">
-                    <h3>World Objects</h3>
-                    <p class="hint">Click anywhere on the map or use the form below to place objects into Lively's world.</p>
+                    <h3>World Builder & Landmarks</h3>
+                    <p class="hint">Click anywhere on the map or type coordinates to place items into Lively's world.</p>
                     
                     <form id="form-add-object" class="card">
                         <h4>Add Object / Landmark</h4>
@@ -81,23 +89,23 @@
                         <div class="form-group">
                             <label>Type:</label>
                             <select id="obj-type">
-                                <option value="tree">🌳 Tree / Perch</option>
-                                <option value="landmark">📍 Landmark</option>
-                                <option value="cache">🌰 Nut Cache</option>
-                                <option value="sensor">📡 Telemetry Sensor</option>
-                                <option value="contraption">⚙️ Contraption</option>
-                                <option value="note">📝 Note</option>
+                                <option value="tree">🌳 Cyber Tree / Perch</option>
+                                <option value="sensor">📡 Telemetry Sensor / Beacon</option>
+                                <option value="cache">🌰 Digital Nut Cache</option>
+                                <option value="contraption">⚙️ Robotic Contraption</option>
+                                <option value="note">📝 Holographic Note</option>
+                                <option value="landmark">📍 Spatial Landmark</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label>Description:</label>
                             <textarea id="obj-desc" rows="2" placeholder="What is this item?"></textarea>
                         </div>
-                        <button type="submit" class="btn primary full-width">+ Place Object</button>
+                        <button type="submit" class="btn primary full-width">+ Place in World</button>
                     </form>
 
                     <div class="object-list-section">
-                        <h4>Existing Objects (<span id="obj-count">0</span>)</h4>
+                        <h4>Placed Objects (<span id="obj-count">0</span>)</h4>
                         <div id="object-list" class="item-list"></div>
                     </div>
                 </div>
@@ -132,24 +140,64 @@
                     <div id="journal-list" class="item-list"></div>
                 </div>
 
-                <!-- Tab: Gmail & Connectivity -->
+                <!-- Tab: Gmail Setup & Test -->
                 <div id="tab-settings" class="tab-pane">
-                    <h3>Gmail & Settings</h3>
+                    <h3>Gmail Integration</h3>
+                    <p class="hint">Enable Lively to email you daily adventures, inventions, and greetings.</p>
+
                     <div class="card">
-                        <h4>Gmail Connection</h4>
-                        <p class="hint">Authorize Lively so the squirrel can email you its daily adventures, inventions, and greetings!</p>
+                        <h4>Status</h4>
                         <div id="gmail-status-card" class="status-indicator">
                             <span id="gmail-status-text">Checking status...</span>
                         </div>
-                        <div id="gmail-auth-action" class="mt-2">
-                            <button id="btn-auth-gmail" class="btn primary full-width">🔗 Connect Gmail Account</button>
-                        </div>
                     </div>
 
+                    <!-- Method 1: App Password (Super Fast) -->
                     <div class="card mt-2">
-                        <h4>Avatar Customization</h4>
+                        <h4>Method 1: Gmail App Password <span class="badge ready">Recommended & Instant</span></h4>
+                        <p class="hint">No Google Cloud setup required! Generate a 16-letter app password in 15 seconds at Google Account Security.</p>
+                        <form id="form-gmail-app-pw">
+                            <div class="form-group">
+                                <label>Your Gmail Address:</label>
+                                <input type="text" id="gmail-user-email" value="tarassekanev@gmail.com" required>
+                            </div>
+                            <div class="form-group">
+                                <label>16-Character App Password: (<a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:#f59e0b;">Generate at Google Account ↗</a>)</label>
+                                <input type="password" id="gmail-app-pw" placeholder="e.g. abcd efgh ijkl mnop">
+                            </div>
+                            <button type="submit" class="btn primary full-width">Save App Password</button>
+                        </form>
+                    </div>
+
+                    <!-- Method 2: Google OAuth Link -->
+                    <div class="card mt-2">
+                        <h4>Method 2: Google OAuth 2.0</h4>
+                        <p class="hint">If you have a Google Cloud Client ID & Secret, enter them below to generate an authentication link.</p>
+                        <form id="form-gmail-oauth">
+                            <div class="form-group">
+                                <label>Client ID:</label>
+                                <input type="text" id="gmail-client-id" placeholder="xxxx.apps.googleusercontent.com">
+                            </div>
+                            <div class="form-group">
+                                <label>Client Secret:</label>
+                                <input type="password" id="gmail-client-secret" placeholder="GOCSPX-xxxx">
+                            </div>
+                            <button type="submit" class="btn full-width">Save OAuth Credentials</button>
+                            <button type="button" id="btn-auth-gmail" class="btn primary full-width mt-2">🔗 Open Google Sign-In Link</button>
+                        </form>
+                    </div>
+
+                    <!-- Test Email Button -->
+                    <div class="card mt-2">
+                        <h4>Verify Email Connection</h4>
+                        <button id="btn-test-email" class="btn success full-width">📨 Send Test Email Now</button>
+                        <div id="email-test-result" class="hint mt-2"></div>
+                    </div>
+
+                    <!-- Avatar name -->
+                    <div class="card mt-2">
+                        <h4>Your Explorer Name</h4>
                         <div class="form-group">
-                            <label>Your Name:</label>
                             <input type="text" id="user-display-name" value="David">
                         </div>
                     </div>

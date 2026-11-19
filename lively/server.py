@@ -121,14 +121,55 @@ async def trigger_wake_cycle():
     })
     return cycle_res.model_dump()
 
-# Gmail OAuth Endpoints
+class GmailSettingsRequest(BaseModel):
+    method: str = "oauth"  # "oauth" or "app_password"
+    user_email: str
+    client_id: str = ""
+    client_secret: str = ""
+    app_password: str = ""
+
+class TestEmailRequest(BaseModel):
+    subject: str = "Hello from Lively!"
+    body: str = "This is a test message from your robot squirrel!"
+
+# Gmail Configuration & Endpoints
+@app.get("/api/settings/gmail")
+async def get_gmail_settings():
+    """Retrieve current email settings."""
+    cfg = email_service.get_settings()
+    # Mask secrets
+    if cfg.get("app_password"):
+        cfg["app_password_masked"] = "••••••••••••••••"
+    if cfg.get("client_secret"):
+        cfg["client_secret_masked"] = "••••" + cfg["client_secret"][-4:] if len(cfg["client_secret"]) > 4 else "••••"
+    return cfg
+
+@app.post("/api/settings/gmail")
+async def save_gmail_settings(req: GmailSettingsRequest):
+    """Save user email settings."""
+    updated = email_service.save_settings(
+        method=req.method,
+        user_email=req.user_email,
+        client_id=req.client_id,
+        client_secret=req.client_secret,
+        app_password=req.app_password
+    )
+    return updated
+
+@app.post("/api/test/email")
+async def send_test_email(req: TestEmailRequest = TestEmailRequest()):
+    """Send an immediate test email to verify credentials."""
+    res = email_service.send_email(subject=req.subject, body=req.body)
+    return res
+
 @app.get("/auth/gmail")
 async def get_gmail_auth_url(request: Request):
-    """Return or redirect to Google OAuth authorization URL."""
+    """Return Google OAuth authorization URL."""
     base = str(request.base_url).rstrip("/")
     redirect_uri = f"{base}/auth/gmail/callback"
-    url = email_service.get_authorization_url(redirect_uri=redirect_uri)
-    return {"auth_url": url, "authenticated": email_service.is_authenticated()}
+    res = email_service.get_authorization_url(redirect_uri=redirect_uri)
+    res["authenticated"] = email_service.is_authenticated()
+    return res
 
 @app.get("/auth/gmail/callback")
 async def gmail_auth_callback(code: str, request: Request):

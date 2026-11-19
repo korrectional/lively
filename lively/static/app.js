@@ -1,5 +1,5 @@
 /**
- * Lively 2D World Canvas & Client Application
+ * Lively 2D World Canvas & Client Application (Upgraded Visuals & Controls)
  */
 
 // Application State
@@ -18,9 +18,12 @@ const state = {
         targetY: 20,
         speed: 6
     },
+    myUserId: null,
     camera: {
         x: 0,
         y: 0,
+        targetX: 0,
+        targetY: 0,
         zoom: 1.0,
         isDragging: false,
         lastMouseX: 0,
@@ -29,13 +32,16 @@ const state = {
     keysPressed: {},
     ws: null,
     selectedProject: null,
-    squirrelTrail: []
+    squirrelTrail: [],
+    particles: []
 };
 
 // Canvas & DOM Elements
 const canvas = document.getElementById("world-canvas");
 const ctx = canvas.getContext("2d");
 const container = document.getElementById("canvas-container");
+const minimapCanvas = document.getElementById("minimap-canvas");
+const minimapCtx = minimapCanvas ? minimapCanvas.getContext("2d") : null;
 
 // UI Elements
 const statSquirrelPos = document.getElementById("stat-squirrel-pos");
@@ -51,6 +57,18 @@ const modal = document.getElementById("modal");
 const modalBody = document.getElementById("modal-body");
 const modalClose = document.getElementById("modal-close");
 
+// Spawn ambient floating digital particles
+for (let i = 0; i < 40; i++) {
+    state.particles.push({
+        x: Math.random() * 2000 - 1000,
+        y: Math.random() * 2000 - 1000,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        size: Math.random() * 2 + 1,
+        alpha: Math.random() * 0.6 + 0.2
+    });
+}
+
 // Resize canvas
 function resizeCanvas() {
     canvas.width = container.clientWidth;
@@ -64,7 +82,7 @@ function worldToScreen(wx, wy) {
     const cx = canvas.width / 2;
     const cy = canvas.height / 2;
     const sx = cx + (wx - state.camera.x) * state.camera.zoom;
-    const sy = cy - (wy - state.camera.y) * state.camera.zoom; // Invert Y for Cartesian coordinates
+    const sy = cy - (wy - state.camera.y) * state.camera.zoom; // Invert Y
     return { x: sx, y: sy };
 }
 
@@ -76,13 +94,444 @@ function screenToWorld(sx, sy) {
     return { x: Math.round(wx), y: Math.round(wy) };
 }
 
-// Render Loop
-function render() {
+// Helper: Pill Badge with Text
+function drawPillBadge(context, x, y, text, color = "#cbd5e1", bgColor = "rgba(15, 20, 32, 0.85)", borderColor = "rgba(255, 255, 255, 0.12)") {
+    context.save();
+    context.font = "bold 11px sans-serif";
+    const textWidth = context.measureText(text).width;
+    const paddingX = 8;
+    const paddingY = 4;
+    const width = textWidth + paddingX * 2;
+    const height = 18;
+    const radius = 9;
+
+    const rx = x - width / 2;
+    const ry = y - height / 2;
+
+    // Background pill
+    context.fillStyle = bgColor;
+    context.beginPath();
+    context.roundRect(rx, ry, width, height, radius);
+    context.fill();
+
+    // Border
+    context.strokeStyle = borderColor;
+    context.lineWidth = 1;
+    context.stroke();
+
+    // Text
+    context.fillStyle = color;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(text, x, y);
+    context.restore();
+}
+
+// ==========================================
+// Procedural Canvas Sprites
+// ==========================================
+
+// 1. Robot Squirrel
+function drawRobotSquirrel(c, x, y, scale, heading, time) {
+    c.save();
+    c.translate(x, y);
+    c.scale(scale, scale);
+
+    const bob = Math.sin(time * 0.004) * 2;
+    c.translate(0, bob);
+
+    // Direction flip (if moving left vs right)
+    const facingLeft = (heading > 90 && heading < 270);
+    if (facingLeft) c.scale(-1, 1);
+
+    // Radiating energy pulse aura
+    const pulse = (Math.sin(time * 0.003) + 1) * 0.5;
+    const auraGrad = c.createRadialGradient(0, 0, 5, 0, 0, 38 + pulse * 8);
+    auraGrad.addColorStop(0, "rgba(245, 158, 11, 0.35)");
+    auraGrad.addColorStop(0.7, "rgba(245, 158, 11, 0.08)");
+    auraGrad.addColorStop(1, "rgba(245, 158, 11, 0)");
+    c.fillStyle = auraGrad;
+    c.beginPath();
+    c.arc(0, 0, 42, 0, Math.PI * 2);
+    c.fill();
+
+    // Tail: Segmented mechanical tail with glowing cyan joints
+    c.save();
+    c.translate(-14, 2);
+    c.rotate(-0.4 + Math.sin(time * 0.005) * 0.1);
+
+    // Outer tail curve (carbon/titanium segments)
+    c.fillStyle = "#475569";
+    c.beginPath();
+    c.arc(-8, -14, 18, 0, Math.PI * 1.6);
+    c.lineWidth = 9;
+    c.strokeStyle = "#334155";
+    c.stroke();
+
+    // Inner glowing power line
+    c.strokeStyle = "#06b6d4";
+    c.lineWidth = 2.5;
+    c.stroke();
+
+    // Blinking antenna bulb at tip of tail
+    const blink = Math.sin(time * 0.008) > 0;
+    c.fillStyle = blink ? "#ef4444" : "#f59e0b";
+    c.beginPath();
+    c.arc(-8, -32, 3.5, 0, Math.PI * 2);
+    c.fill();
+    c.restore();
+
+    // Squirrel Body: Brushed titanium pear
+    const bodyGrad = c.createLinearGradient(-10, -10, 10, 15);
+    bodyGrad.addColorStop(0, "#cbd5e1");
+    bodyGrad.addColorStop(0.5, "#94a3b8");
+    bodyGrad.addColorStop(1, "#64748b");
+    c.fillStyle = bodyGrad;
+    c.beginPath();
+    c.ellipse(0, 2, 12, 16, 0, 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = "#475569";
+    c.lineWidth = 1;
+    c.stroke();
+
+    // Copper chest plate
+    c.fillStyle = "#f59e0b";
+    c.beginPath();
+    c.ellipse(3, 4, 6, 9, 0.1, 0, Math.PI * 2);
+    c.fill();
+
+    // Head
+    c.fillStyle = "#e2e8f0";
+    c.beginPath();
+    c.ellipse(6, -12, 10, 9, 0.2, 0, Math.PI * 2);
+    c.fill();
+
+    // Ears
+    c.fillStyle = "#94a3b8";
+    c.beginPath();
+    c.moveTo(2, -18);
+    c.lineTo(4, -26);
+    c.lineTo(8, -19);
+    c.fill();
+
+    // Eye: Glowing cyan visor sensor with blink
+    const isBlinking = (Math.sin(time * 0.001) > 0.96);
+    c.fillStyle = isBlinking ? "#0891b2" : "#22d3ee";
+    c.shadowColor = "#06b6d4";
+    c.shadowBlur = isBlinking ? 0 : 8;
+    c.beginPath();
+    if (isBlinking) {
+        c.rect(7, -13, 6, 1.5);
+    } else {
+        c.ellipse(10, -13, 3.5, 3.5, 0, 0, Math.PI * 2);
+    }
+    c.fill();
+    c.shadowBlur = 0;
+
+    // Nose/snout
+    c.fillStyle = "#0f172a";
+    c.beginPath();
+    c.arc(15, -10, 2, 0, Math.PI * 2);
+    c.fill();
+
+    // Paws holding a glowing Cyber Acorn
+    c.fillStyle = "#94a3b8";
+    c.beginPath();
+    c.arc(7, 2, 3, 0, Math.PI * 2);
+    c.fill();
+
+    // Golden Cyber Acorn
+    c.fillStyle = "#f59e0b";
+    c.beginPath();
+    c.arc(12, 3, 3.5, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = "#78350f";
+    c.fillRect(10, -1, 4, 2);
+
+    c.restore();
+}
+
+// 2. Cyber Tree
+function drawCyberTree(c, x, y, scale) {
+    c.save();
+    c.translate(x, y);
+    c.scale(scale, scale);
+
+    // Drop shadow
+    c.fillStyle = "rgba(0, 0, 0, 0.4)";
+    c.beginPath();
+    c.ellipse(0, 16, 18, 7, 0, 0, Math.PI * 2);
+    c.fill();
+
+    // Trunk
+    c.fillStyle = "#334155";
+    c.fillRect(-4, 0, 8, 16);
+
+    // Glowing trunk circuit line
+    c.strokeStyle = "#10b981";
+    c.lineWidth = 1.5;
+    c.beginPath();
+    c.moveTo(0, 16);
+    c.lineTo(0, 2);
+    c.lineTo(-3, -2);
+    c.stroke();
+
+    // Canopy layers (Pine/Oak hybrid)
+    c.fillStyle = "#065f46";
+    c.beginPath();
+    c.arc(0, 4, 16, 0, Math.PI * 2);
+    c.fill();
+
+    c.fillStyle = "#047857";
+    c.beginPath();
+    c.arc(0, -6, 13, 0, Math.PI * 2);
+    c.fill();
+
+    c.fillStyle = "#10b981";
+    c.beginPath();
+    c.arc(0, -14, 9, 0, Math.PI * 2);
+    c.fill();
+
+    // Digital leaf accents
+    c.fillStyle = "#6ee7b7";
+    c.fillRect(-4, -8, 2, 2);
+    c.fillRect(5, -4, 2, 2);
+    c.fillRect(1, -16, 2, 2);
+
+    c.restore();
+}
+
+// 3. Telemetry Beacon / Sensor
+function drawBeacon(c, x, y, scale, time) {
+    c.save();
+    c.translate(x, y);
+    c.scale(scale, scale);
+
+    // Expanding radio wave ripple
+    const ripple = (time * 0.002) % 1;
+    c.strokeStyle = `rgba(6, 182, 212, ${1 - ripple})`;
+    c.lineWidth = 1.5;
+    c.beginPath();
+    c.arc(0, -12, ripple * 26, 0, Math.PI * 2);
+    c.stroke();
+
+    // Base
+    c.fillStyle = "#1e293b";
+    c.fillRect(-6, 8, 12, 4);
+
+    // Mast
+    c.strokeStyle = "#94a3b8";
+    c.lineWidth = 2.5;
+    c.beginPath();
+    c.moveTo(0, 8);
+    c.lineTo(0, -12);
+    c.stroke();
+
+    // Antenna dish
+    c.strokeStyle = "#06b6d4";
+    c.lineWidth = 2;
+    c.beginPath();
+    c.arc(0, -12, 6, Math.PI * 0.8, Math.PI * 2.2);
+    c.stroke();
+
+    // Blinking transmitter diode
+    c.fillStyle = (Math.sin(time * 0.01) > 0) ? "#ef4444" : "#22d3ee";
+    c.beginPath();
+    c.arc(0, -16, 2.5, 0, Math.PI * 2);
+    c.fill();
+
+    c.restore();
+}
+
+// 4. Nut Cache
+function drawCache(c, x, y, scale) {
+    c.save();
+    c.translate(x, y);
+    c.scale(scale, scale);
+
+    // Vault box
+    c.fillStyle = "#1e293b";
+    c.strokeStyle = "#f59e0b";
+    c.lineWidth = 1.5;
+    c.beginPath();
+    c.roundRect(-10, -6, 20, 14, 3);
+    c.fill();
+    c.stroke();
+
+    // Acorn icon on lid
+    c.fillStyle = "#f59e0b";
+    c.beginPath();
+    c.arc(0, 0, 3.5, 0, Math.PI * 2);
+    c.fill();
+
+    // Green status LED
+    c.fillStyle = "#10b981";
+    c.beginPath();
+    c.arc(6, -2, 1.5, 0, Math.PI * 2);
+    c.fill();
+
+    c.restore();
+}
+
+// 5. Holographic Note
+function drawNote(c, x, y, scale, time) {
+    c.save();
+    c.translate(x, y);
+    c.scale(scale, scale);
+
+    const bob = Math.sin(time * 0.003) * 2;
+    c.translate(0, bob);
+
+    // Hologram sheet
+    c.fillStyle = "rgba(6, 182, 212, 0.25)";
+    c.strokeStyle = "#06b6d4";
+    c.lineWidth = 1;
+    c.beginPath();
+    c.roundRect(-8, -11, 16, 22, 2);
+    c.fill();
+    c.stroke();
+
+    // Scan lines
+    c.strokeStyle = "rgba(255, 255, 255, 0.5)";
+    c.beginPath();
+    c.moveTo(-5, -6); c.lineTo(5, -6);
+    c.moveTo(-5, -2); c.lineTo(3, -2);
+    c.moveTo(-5, 2);  c.lineTo(4, 2);
+    c.moveTo(-5, 6);  c.lineTo(1, 6);
+    c.stroke();
+
+    c.restore();
+}
+
+// 6. Contraption
+function drawContraption(c, x, y, scale, time) {
+    c.save();
+    c.translate(x, y);
+    c.scale(scale, scale);
+
+    // Rotating gear
+    c.save();
+    c.rotate(time * 0.001);
+    c.strokeStyle = "#f59e0b";
+    c.lineWidth = 2;
+    c.beginPath();
+    c.arc(0, 0, 8, 0, Math.PI * 2);
+    c.stroke();
+    for (let i = 0; i < 6; i++) {
+        c.rotate(Math.PI / 3);
+        c.strokeRect(-2, -10, 4, 3);
+    }
+    c.restore();
+
+    // Center jewel
+    c.fillStyle = "#06b6d4";
+    c.beginPath();
+    c.arc(0, 0, 3, 0, Math.PI * 2);
+    c.fill();
+
+    c.restore();
+}
+
+// 7. Player Avatar
+function drawPlayer(c, x, y, scale, name) {
+    c.save();
+    c.translate(x, y);
+    c.scale(scale, scale);
+
+    // Personal light cone / aura
+    const light = c.createRadialGradient(0, 0, 4, 0, 0, 24);
+    light.addColorStop(0, "rgba(6, 182, 212, 0.3)");
+    light.addColorStop(1, "rgba(6, 182, 212, 0)");
+    c.fillStyle = light;
+    c.beginPath();
+    c.arc(0, 0, 24, 0, Math.PI * 2);
+    c.fill();
+
+    // Suit Body
+    c.fillStyle = "#e2e8f0";
+    c.beginPath();
+    c.ellipse(0, 2, 9, 11, 0, 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = "#0891b2";
+    c.lineWidth = 1;
+    c.stroke();
+
+    // Helmet
+    c.fillStyle = "#0284c7";
+    c.beginPath();
+    c.arc(0, -9, 8, 0, Math.PI * 2);
+    c.fill();
+
+    // Golden Visor
+    c.fillStyle = "#f59e0b";
+    c.beginPath();
+    c.ellipse(2, -9, 5, 4, 0.1, 0, Math.PI * 2);
+    c.fill();
+
+    c.restore();
+}
+
+// ==========================================
+// Object Clumping & Radial Layout
+// ==========================================
+function getObjectVisualOffsets(objects) {
+    // If multiple objects share coordinates (within 35m), fan them out radially
+    const clusters = {};
+    const clusterDist = 35;
+
+    objects.forEach(obj => {
+        let placed = false;
+        for (const k in clusters) {
+            const [cx, cy] = k.split(",").map(Number);
+            if (Math.hypot(obj.x - cx, obj.y - cy) < clusterDist) {
+                clusters[k].push(obj);
+                placed = true;
+                break;
+            }
+        }
+        if (!placed) {
+            const key = `${obj.x},${obj.y}`;
+            clusters[key] = [obj];
+        }
+    });
+
+    const offsets = new Map();
+    for (const k in clusters) {
+        const group = clusters[k];
+        if (group.length === 1) {
+            offsets.set(group[0].id, { x: group[0].x, y: group[0].y, isClustered: false });
+        } else {
+            const count = group.length;
+            const radius = 32; // Spread radius in world units
+            group.forEach((obj, idx) => {
+                const angle = (idx * (Math.PI * 2) / count) - (Math.PI / 2);
+                offsets.set(obj.id, {
+                    x: obj.x + Math.cos(angle) * radius,
+                    y: obj.y + Math.sin(angle) * radius,
+                    isClustered: true
+                });
+            });
+        }
+    }
+    return offsets;
+}
+
+// ==========================================
+// Main Render Loop
+// ==========================================
+function render(timestamp) {
+    const time = timestamp || performance.now();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const zoom = state.camera.zoom;
     const cx = canvas.width / 2;
     const cy = canvas.height / 2;
+
+    // Smooth camera pan toward target if needed
+    if (!state.camera.isDragging && state.camera.targetX !== undefined) {
+        state.camera.x += (state.camera.targetX - state.camera.x) * 0.08;
+        state.camera.y += (state.camera.targetY - state.camera.y) * 0.08;
+    }
 
     // Draw Grid
     const gridSize = 100;
@@ -94,10 +543,9 @@ function render() {
     const startY = Math.floor(bottomRight.y / gridSize) * gridSize;
     const endY = Math.ceil(topLeft.y / gridSize) * gridSize;
 
+    // Dual Grid Lines
     ctx.lineWidth = 1;
-
-    // Subtle grid lines
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
     for (let x = startX; x <= endX; x += gridSize) {
         const p1 = worldToScreen(x, startY);
         const p2 = worldToScreen(x, endY);
@@ -117,7 +565,7 @@ function render() {
 
     // Origin Axes
     const origin = worldToScreen(0, 0);
-    ctx.strokeStyle = "rgba(245, 158, 11, 0.2)";
+    ctx.strokeStyle = "rgba(245, 158, 11, 0.25)";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(origin.x, 0);
@@ -130,15 +578,31 @@ function render() {
     const b = state.world.bounds;
     const bTopLeft = worldToScreen(b.min_x, b.max_y);
     const bBottomRight = worldToScreen(b.max_x, b.min_y);
-    ctx.strokeStyle = "rgba(245, 158, 11, 0.35)";
-    ctx.setLineDash([6, 6]);
+    ctx.strokeStyle = "rgba(245, 158, 11, 0.4)";
+    ctx.setLineDash([8, 8]);
     ctx.strokeRect(bTopLeft.x, bTopLeft.y, bBottomRight.x - bTopLeft.x, bBottomRight.y - bTopLeft.y);
     ctx.setLineDash([]);
 
+    // Ambient Floating Particles
+    state.particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < b.min_x) p.x = b.max_x;
+        if (p.x > b.max_x) p.x = b.min_x;
+        if (p.y < b.min_y) p.y = b.max_y;
+        if (p.y > b.max_y) p.y = b.min_y;
+
+        const sp = worldToScreen(p.x, p.y);
+        ctx.fillStyle = `rgba(6, 182, 212, ${p.alpha})`;
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, p.size * zoom, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
     // Draw Squirrel Trail
     if (state.squirrelTrail.length > 1) {
-        ctx.strokeStyle = "rgba(245, 158, 11, 0.25)";
-        ctx.lineWidth = 2 * zoom;
+        ctx.strokeStyle = "rgba(245, 158, 11, 0.35)";
+        ctx.lineWidth = 2.5 * zoom;
         ctx.beginPath();
         for (let i = 0; i < state.squirrelTrail.length; i++) {
             const p = worldToScreen(state.squirrelTrail[i].x, state.squirrelTrail[i].y);
@@ -148,109 +612,136 @@ function render() {
         ctx.stroke();
     }
 
+    // Calculate smart offsets for clustered objects
+    const objOffsets = getObjectVisualOffsets(state.world.objects);
+
     // Draw World Objects
     state.world.objects.forEach(obj => {
-        const p = worldToScreen(obj.x, obj.y);
+        const offset = objOffsets.get(obj.id) || { x: obj.x, y: obj.y };
+        const p = worldToScreen(offset.x, offset.y);
+        const spriteScale = Math.max(0.6, Math.min(1.8, zoom));
 
-        // Icon based on type
-        let icon = "📍";
-        if (obj.type === "tree") icon = "🌳";
-        else if (obj.type === "cache") icon = "🌰";
-        else if (obj.type === "sensor") icon = "📡";
-        else if (obj.type === "contraption") icon = "⚙️";
-        else if (obj.type === "note") icon = "📝";
+        // Draw connecting leader line if fanned out
+        if (offset.isClustered) {
+            const originP = worldToScreen(obj.x, obj.y);
+            ctx.strokeStyle = "rgba(148, 163, 184, 0.25)";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 4]);
+            ctx.beginPath();
+            ctx.moveTo(originP.x, originP.y);
+            ctx.lineTo(p.x, p.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
 
-        ctx.font = `${20 * zoom}px sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(icon, p.x, p.y);
+        // Render distinct sprite
+        if (obj.type === "tree") {
+            drawCyberTree(ctx, p.x, p.y, spriteScale);
+        } else if (obj.type === "sensor") {
+            drawBeacon(ctx, p.x, p.y, spriteScale, time);
+        } else if (obj.type === "cache") {
+            drawCache(ctx, p.x, p.y, spriteScale);
+        } else if (obj.type === "note") {
+            drawNote(ctx, p.x, p.y, spriteScale, time);
+        } else if (obj.type === "contraption") {
+            drawContraption(ctx, p.x, p.y, spriteScale, time);
+        } else {
+            // Default Landmark
+            ctx.font = `${20 * zoom}px sans-serif`;
+            ctx.textAlign = "center";
+            ctx.fillText("📍", p.x, p.y);
+        }
 
-        // Name Tag
-        ctx.font = `${Math.max(10, 11 * zoom)}px sans-serif`;
-        ctx.fillStyle = "#cbd5e1";
-        ctx.fillText(obj.name, p.x, p.y + 18 * zoom);
+        // Draw pill label badge (never raw overlapping text!)
+        drawPillBadge(ctx, p.x, p.y + 24 * spriteScale, obj.name, "#cbd5e1");
     });
 
-    // Draw Squirrel
+    // Draw Robot Squirrel
     const sq = state.world.squirrel;
     const sqScreen = worldToScreen(sq.x, sq.y);
+    const sqScale = Math.max(0.7, Math.min(2.0, zoom));
+    drawRobotSquirrel(ctx, sqScreen.x, sqScreen.y, sqScale, sq.heading, time);
 
-    // Glowing aura
-    const gradient = ctx.createRadialGradient(sqScreen.x, sqScreen.y, 4, sqScreen.x, sqScreen.y, 25 * zoom);
-    gradient.addColorStop(0, "rgba(245, 158, 11, 0.4)");
-    gradient.addColorStop(1, "rgba(245, 158, 11, 0)");
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(sqScreen.x, sqScreen.y, 25 * zoom, 0, Math.PI * 2);
-    ctx.fill();
+    // Squirrel Name Badge
+    drawPillBadge(ctx, sqScreen.x, sqScreen.y - 28 * sqScale, "LIVELY ⚡", "#f59e0b", "rgba(24, 27, 36, 0.95)", "rgba(245, 158, 11, 0.4)");
 
-    // Squirrel emoji & badge
-    ctx.font = `${26 * zoom}px sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("🐿️", sqScreen.x, sqScreen.y);
-
-    // Squirrel Name Tag
-    ctx.font = `bold ${Math.max(10, 12 * zoom)}px sans-serif`;
-    ctx.fillStyle = "#f59e0b";
-    ctx.fillText("LIVELY ⚡", sqScreen.x, sqScreen.y - 20 * zoom);
-
-    // Draw Other Users
+    // Draw Other Users (filter out own ID so NO DUPLICATION!)
     state.world.users.forEach(u => {
+        if (state.myUserId && u.id === state.myUserId) return; // Do not draw self twice!
         const up = worldToScreen(u.x, u.y);
-        ctx.font = `${20 * zoom}px sans-serif`;
-        ctx.textAlign = "center";
-        ctx.fillText("🤖", up.x, up.y);
-        ctx.font = `${10 * zoom}px sans-serif`;
-        ctx.fillStyle = "#94a3b8";
-        ctx.fillText(u.name, up.x, up.y - 16 * zoom);
+        drawPlayer(ctx, up.x, up.y, Math.max(0.6, Math.min(1.5, zoom)), u.name);
+        drawPillBadge(ctx, up.x, up.y - 24 * zoom, u.name, "#94a3b8");
     });
 
     // Draw Your Avatar
     const userScreen = worldToScreen(state.user.x, state.user.y);
-    ctx.fillStyle = "rgba(6, 182, 212, 0.3)";
-    ctx.beginPath();
-    ctx.arc(userScreen.x, userScreen.y, 16 * zoom, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.font = `${24 * zoom}px sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("🧑‍🚀", userScreen.x, userScreen.y);
-
-    ctx.font = `bold ${Math.max(10, 11 * zoom)}px sans-serif`;
-    ctx.fillStyle = "#38bdf8";
-    ctx.fillText(`${state.user.name} (You)`, userScreen.x, userScreen.y - 18 * zoom);
+    const playerScale = Math.max(0.7, Math.min(1.8, zoom));
+    drawPlayer(ctx, userScreen.x, userScreen.y, playerScale, state.user.name);
+    drawPillBadge(ctx, userScreen.x, userScreen.y - 26 * playerScale, `${state.user.name} (You)`, "#38bdf8", "rgba(15, 23, 42, 0.9)", "rgba(6, 182, 212, 0.4)");
 
     // Smooth movement towards target
     updateUserMovement();
 
+    // Render Mini-Map
+    renderMiniMap();
+
     requestAnimationFrame(render);
+}
+
+// Render Mini-Map
+function renderMiniMap() {
+    if (!minimapCtx) return;
+    const mc = minimapCtx;
+    const w = minimapCanvas.width;
+    const h = minimapCanvas.height;
+
+    mc.clearRect(0, 0, w, h);
+    mc.fillStyle = "#090b10";
+    mc.fillRect(0, 0, w, h);
+
+    const b = state.world.bounds;
+    const toMapX = (wx) => ((wx - b.min_x) / (b.max_x - b.min_x)) * w;
+    const toMapY = (wy) => h - ((wy - b.min_y) / (b.max_y - b.min_y)) * h;
+
+    // Objects
+    state.world.objects.forEach(obj => {
+        mc.fillStyle = obj.type === "tree" ? "#10b981" : (obj.type === "sensor" ? "#06b6d4" : "#f59e0b");
+        mc.beginPath();
+        mc.arc(toMapX(obj.x), toMapY(obj.y), 2.5, 0, Math.PI * 2);
+        mc.fill();
+    });
+
+    // Squirrel (Amber Blip)
+    const sq = state.world.squirrel;
+    mc.fillStyle = "#f59e0b";
+    mc.beginPath();
+    mc.arc(toMapX(sq.x), toMapY(sq.y), 4.5, 0, Math.PI * 2);
+    mc.fill();
+
+    // User (Cyan Blip)
+    mc.fillStyle = "#38bdf8";
+    mc.beginPath();
+    mc.arc(toMapX(state.user.x), toMapY(state.user.y), 3.5, 0, Math.PI * 2);
+    mc.fill();
+
+    // Camera viewport box
+    const tl = screenToWorld(0, 0);
+    const br = screenToWorld(canvas.width, canvas.height);
+    mc.strokeStyle = "rgba(255, 255, 255, 0.25)";
+    mc.lineWidth = 1;
+    mc.strokeRect(toMapX(tl.x), toMapY(tl.y), toMapX(br.x) - toMapX(tl.x), toMapY(br.y) - toMapY(tl.y));
 }
 
 // User Movement (Smooth interpolation & Keyboard / Mouse)
 function updateUserMovement() {
-    let moved = false;
     let step = state.user.speed / state.camera.zoom;
 
-    if (state.keysPressed["w"] || state.keysPressed["ArrowUp"]) {
-        state.user.targetY += step;
-        moved = true;
-    }
-    if (state.keysPressed["s"] || state.keysPressed["ArrowDown"]) {
-        state.user.targetY -= step;
-        moved = true;
-    }
-    if (state.keysPressed["a"] || state.keysPressed["ArrowLeft"]) {
-        state.user.targetX -= step;
-        moved = true;
-    }
-    if (state.keysPressed["d"] || state.keysPressed["ArrowRight"]) {
-        state.user.targetX += step;
-        moved = true;
-    }
+    if (state.keysPressed["w"] || state.keysPressed["ArrowUp"]) state.user.targetY += step;
+    if (state.keysPressed["s"] || state.keysPressed["ArrowDown"]) state.user.targetY -= step;
+    if (state.keysPressed["a"] || state.keysPressed["ArrowLeft"]) state.user.targetX -= step;
+    if (state.keysPressed["d"] || state.keysPressed["ArrowRight"]) state.user.targetX += step;
 
-    // Clamp to world
+    // Clamp
     const b = state.world.bounds;
     state.user.targetX = Math.max(b.min_x, Math.min(b.max_x, state.user.targetX));
     state.user.targetY = Math.max(b.min_y, Math.min(b.max_y, state.user.targetY));
@@ -260,12 +751,10 @@ function updateUserMovement() {
     const dy = state.user.targetY - state.user.y;
     const dist = Math.hypot(dx, dy);
 
-    if (dist > 0.5) {
-        state.user.x += dx * 0.15;
-        state.user.y += dy * 0.15;
+    if (dist > 0.4) {
+        state.user.x += dx * 0.16;
+        state.user.y += dy * 0.16;
         statUserPos.innerText = `(${Math.round(state.user.x)}, ${Math.round(state.user.y)})`;
-
-        // Send to WebSocket
         sendUserPosition();
     }
 }
@@ -293,7 +782,7 @@ canvas.addEventListener("mousedown", (e) => {
         // Check if clicked an object
         const clickedObj = state.world.objects.find(obj => {
             const dist = Math.hypot(obj.x - clickWorld.x, obj.y - clickWorld.y);
-            return dist < (30 / state.camera.zoom);
+            return dist < (35 / state.camera.zoom);
         });
 
         if (clickedObj) {
@@ -301,7 +790,7 @@ canvas.addEventListener("mousedown", (e) => {
             return;
         }
 
-        // Set target destination
+        // Set target destination for user avatar
         state.user.targetX = clickWorld.x;
         state.user.targetY = clickWorld.y;
 
@@ -310,6 +799,7 @@ canvas.addEventListener("mousedown", (e) => {
         document.getElementById("obj-y").value = clickWorld.y;
     } else if (e.button === 1 || e.button === 2) { // Middle or right click to pan
         state.camera.isDragging = true;
+        state.camera.targetX = undefined; // Cancel auto-pan
         state.camera.lastMouseX = e.clientX;
         state.camera.lastMouseY = e.clientY;
     }
@@ -346,6 +836,17 @@ window.addEventListener("keyup", (e) => {
     state.keysPressed[e.key.toLowerCase()] = false;
 });
 
+// Quick Focus Buttons
+document.getElementById("btn-focus-squirrel").addEventListener("click", () => {
+    state.camera.targetX = state.world.squirrel.x;
+    state.camera.targetY = state.world.squirrel.y;
+});
+
+document.getElementById("btn-focus-user").addEventListener("click", () => {
+    state.camera.targetX = state.user.x;
+    state.camera.targetY = state.user.y;
+});
+
 // WebSocket Connection
 function connectWebSocket() {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -367,18 +868,18 @@ function connectWebSocket() {
     };
 
     state.ws.onclose = () => {
-        console.log("[WS] Disconnected, retrying in 3s...");
         setTimeout(connectWebSocket, 3000);
     };
 }
 
 function handleWebSocketMessage(data) {
     if (data.type === "welcome") {
+        state.myUserId = data.user_id;
         updateWorldState(data.state);
-        // Center camera initially near squirrel
         state.camera.x = state.world.squirrel.x;
         state.camera.y = state.world.squirrel.y;
     } else if (data.type === "user_moved") {
+        if (state.myUserId && data.user.id === state.myUserId) return;
         const idx = state.world.users.findIndex(u => u.id === data.user.id);
         if (idx >= 0) state.world.users[idx] = data.user;
         else state.world.users.push(data.user);
@@ -425,26 +926,135 @@ async function fetchWorld() {
     }
 }
 
+// ==========================================
+// Gmail Integration (Settings & Testing)
+// ==========================================
 async function fetchGmailStatus() {
     try {
-        const res = await fetch("/auth/gmail/status");
+        const res = await fetch("/api/settings/gmail");
         const data = await res.json();
         if (data.authenticated) {
-            statGmail.innerText = "Linked ✅";
+            statGmail.innerText = "Ready ✅";
             statGmail.className = "val badge ready";
-            document.getElementById("gmail-status-text").innerText = "Gmail is authorized! Lively can send you emails.";
-            document.getElementById("btn-auth-gmail").innerText = "Reconnect Gmail";
+            document.getElementById("gmail-status-text").innerText = `Gmail is connected (${data.method})! Lively can email you.`;
         } else {
-            statGmail.innerText = "Unlinked ⚠️";
+            statGmail.innerText = "Setup Needed ⚠️";
             statGmail.className = "val badge unlinked";
-            document.getElementById("gmail-status-text").innerText = "Not linked. Click below to authorize Gmail sending.";
-            document.getElementById("btn-auth-gmail").innerText = "🔗 Connect Gmail Account";
+            document.getElementById("gmail-status-text").innerText = "Not connected yet. Choose Method 1 (App Password) or Method 2 (OAuth) below.";
+        }
+        if (data.user_email) {
+            document.getElementById("gmail-user-email").value = data.user_email;
+        }
+        if (data.client_id) {
+            document.getElementById("gmail-client-id").value = data.client_id;
         }
     } catch (e) {
         statGmail.innerText = "Error";
     }
 }
 
+// Method 1: Save App Password
+document.getElementById("form-gmail-app-pw").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const user_email = document.getElementById("gmail-user-email").value.trim();
+    const app_password = document.getElementById("gmail-app-pw").value.trim();
+
+    if (!app_password) {
+        alert("Please paste your 16-character App Password.");
+        return;
+    }
+
+    try {
+        const res = await fetch("/api/settings/gmail", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                method: "app_password",
+                user_email,
+                app_password
+            })
+        });
+        const out = await res.json();
+        alert("App Password saved successfully!");
+        fetchGmailStatus();
+    } catch (err) {
+        alert("Error saving App Password: " + err);
+    }
+});
+
+// Method 2: Save OAuth Credentials
+document.getElementById("form-gmail-oauth").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const user_email = document.getElementById("gmail-user-email").value.trim();
+    const client_id = document.getElementById("gmail-client-id").value.trim();
+    const client_secret = document.getElementById("gmail-client-secret").value.trim();
+
+    try {
+        await fetch("/api/settings/gmail", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                method: "oauth",
+                user_email,
+                client_id,
+                client_secret
+            })
+        });
+        alert("OAuth credentials saved. Now click 'Open Google Sign-In Link' below!");
+        fetchGmailStatus();
+    } catch (err) {
+        alert("Error saving OAuth credentials: " + err);
+    }
+});
+
+// Method 2: Open Auth URL
+document.getElementById("btn-auth-gmail").addEventListener("click", async () => {
+    try {
+        const res = await fetch("/auth/gmail");
+        const data = await res.json();
+        if (data.success && data.auth_url) {
+            window.open(data.auth_url, "_blank");
+        } else {
+            alert(data.error || "Please enter your Client ID & Secret in Method 2 first.");
+        }
+    } catch (e) {
+        alert("Error initiating Gmail auth: " + e);
+    }
+});
+
+// Send Test Email
+document.getElementById("btn-test-email").addEventListener("click", async () => {
+    const btn = document.getElementById("btn-test-email");
+    const resultBox = document.getElementById("email-test-result");
+    btn.disabled = true;
+    btn.innerText = "Sending test email...";
+    resultBox.innerText = "";
+
+    try {
+        const res = await fetch("/api/test/email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                subject: "🐿️ Hello from Lively the Robot Squirrel!",
+                body: "Greetings David!\n\nThis is a transmission from Lively living on your Raspberry Pi! My email sensors are online and functioning perfectly.\n\nCatch you later on the map! 🌰⚡"
+            })
+        });
+        const out = await res.json();
+        if (out.success) {
+            resultBox.innerHTML = "<b style='color:#10b981;'>✅ Email sent successfully! Check your inbox.</b>";
+            fetchGmailStatus();
+        } else {
+            resultBox.innerHTML = `<b style='color:#ef4444;'>❌ Send failed:</b> ${escapeHtml(out.error)}`;
+        }
+    } catch (e) {
+        resultBox.innerHTML = `<b style='color:#ef4444;'>❌ Error:</b> ${e}`;
+    } finally {
+        btn.disabled = false;
+        btn.innerText = "📨 Send Test Email Now";
+    }
+});
+
+// Projects & Code Workshop
 async function loadProjects() {
     try {
         const res = await fetch("/api/projects");
@@ -507,6 +1117,7 @@ document.getElementById("btn-run-code").addEventListener("click", async () => {
     }
 });
 
+// Memories
 async function loadMemories() {
     try {
         const res = await fetch("/api/memories");
@@ -557,7 +1168,7 @@ function renderObjectList() {
         item.className = "list-item";
         item.innerHTML = `
             <div class="item-info">
-                <div class="item-title">${obj.name} <small>(${obj.x}, ${obj.y})</small></div>
+                <div class="item-title">${obj.name} <small style="color:#06b6d4;">(${obj.x}, ${obj.y})</small></div>
                 <div class="item-subtitle">${obj.description || obj.type}</div>
             </div>
             <button class="btn small" style="color:#ef4444;" title="Delete">✕</button>
@@ -569,8 +1180,8 @@ function renderObjectList() {
             }
         };
         item.onclick = () => {
-            state.camera.x = obj.x;
-            state.camera.y = obj.y;
+            state.camera.targetX = obj.x;
+            state.camera.targetY = obj.y;
             showObjectModal(obj);
         };
         list.appendChild(item);
@@ -614,21 +1225,6 @@ btnWake.addEventListener("click", async () => {
     } finally {
         btnWake.disabled = false;
         btnWake.innerText = "⚡ Wake Squirrel";
-    }
-});
-
-// Connect Gmail Button
-document.getElementById("btn-auth-gmail").addEventListener("click", async () => {
-    try {
-        const res = await fetch("/auth/gmail");
-        const data = await res.json();
-        if (data.auth_url) {
-            window.open(data.auth_url, "_blank");
-        } else {
-            alert("No auth URL returned: " + JSON.stringify(data));
-        }
-    } catch (e) {
-        alert("Error initiating Gmail auth: " + e);
     }
 });
 

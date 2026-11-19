@@ -145,7 +145,9 @@ def test_email_service_url(temp_dir):
     svc = EmailService(token_path=token_f, creds_path=creds_f)
     assert not svc.is_authenticated()
 
-    url = svc.get_authorization_url(redirect_uri="http://dietpi:8880/auth/gmail/callback")
+    res = svc.get_authorization_url(redirect_uri="http://dietpi:8880/auth/gmail/callback")
+    assert res["success"] is True
+    url = res["auth_url"]
     assert "accounts.google.com" in url
     assert "test_id_123" in url
     assert "https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.send" in url

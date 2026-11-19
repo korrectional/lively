@@ -686,9 +686,13 @@ canvas.addEventListener("mousedown", (e) => {
         state.user.targetX = clickWorld.x;
         state.user.targetY = clickWorld.y;
 
-        // Auto-fill coordinates in Add Object form
-        document.getElementById("obj-x").value = clickWorld.x;
-        document.getElementById("obj-y").value = clickWorld.y;
+        // Auto-fill coordinates in Add Object form (auto-rounded)
+        const roundedX = Math.round(clickWorld.x);
+        const roundedY = Math.round(clickWorld.y);
+        const inputX = document.getElementById("obj-x");
+        const inputY = document.getElementById("obj-y");
+        if (inputX) inputX.value = roundedX;
+        if (inputY) inputY.value = roundedY;
         updateObjectDistanceHint();
     } else if (e.button === 1 || e.button === 2) { // Middle or right click to pan
         state.camera.isDragging = true;
@@ -1504,15 +1508,37 @@ function updateObjectDistanceHint() {
 
 const objXEl = document.getElementById("obj-x");
 const objYEl = document.getElementById("obj-y");
-if (objXEl) objXEl.addEventListener("input", updateObjectDistanceHint);
-if (objYEl) objYEl.addEventListener("input", updateObjectDistanceHint);
+
+const autoRoundCoord = (inputEl) => {
+    if (!inputEl) return;
+    const val = parseFloat(inputEl.value);
+    if (!isNaN(val)) {
+        inputEl.value = Math.round(val);
+    }
+};
+
+if (objXEl) {
+    objXEl.addEventListener("input", updateObjectDistanceHint);
+    objXEl.addEventListener("change", () => { autoRoundCoord(objXEl); updateObjectDistanceHint(); });
+    objXEl.addEventListener("blur", () => { autoRoundCoord(objXEl); updateObjectDistanceHint(); });
+}
+if (objYEl) {
+    objYEl.addEventListener("input", updateObjectDistanceHint);
+    objYEl.addEventListener("change", () => { autoRoundCoord(objYEl); updateObjectDistanceHint(); });
+    objYEl.addEventListener("blur", () => { autoRoundCoord(objYEl); updateObjectDistanceHint(); });
+}
 
 // Add Object Form
 document.getElementById("form-add-object").addEventListener("submit", async (e) => {
     e.preventDefault();
     const name = document.getElementById("obj-name").value.trim();
-    const x = parseFloat(document.getElementById("obj-x").value);
-    const y = parseFloat(document.getElementById("obj-y").value);
+    const rawX = parseFloat(document.getElementById("obj-x").value);
+    const rawY = parseFloat(document.getElementById("obj-y").value);
+    const x = isNaN(rawX) ? 0 : Math.round(rawX);
+    const y = isNaN(rawY) ? 0 : Math.round(rawY);
+    // Update inputs to auto-rounded values
+    if (objXEl) objXEl.value = x;
+    if (objYEl) objYEl.value = y;
     const type = "custom";
     const icon = objIconInput ? objIconInput.value.trim() : "";
     const desc = document.getElementById("obj-desc").value.trim();

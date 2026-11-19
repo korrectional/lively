@@ -204,16 +204,19 @@ class WorldManager:
                    min_distance: float = MIN_OBJECT_DISTANCE) -> WorldObject:
         """Add a landmark or object to the map with guaranteed physical separation."""
         with self._lock:
+            rx = float(round(float(x)))
+            ry = float(round(float(y)))
             if enforce_distance:
-                closest, dist = self._get_closest_object_unlocked(x, y)
+                closest, dist = self._get_closest_object_unlocked(rx, ry)
                 if closest is not None and dist < min_distance:
                     raise ValueError(
                         f"Too close to '{closest.name}' ({dist:.1f}m away). "
                         f"Objects must be placed at least {min_distance:.0f}m apart."
                     )
-                actual_x, actual_y = round(float(x), 1), round(float(y), 1)
+                actual_x, actual_y = rx, ry
             else:
-                actual_x, actual_y = self._find_open_coordinates_unlocked(x, y, min_clearance=min_distance)
+                actual_x, actual_y = self._find_open_coordinates_unlocked(rx, ry, min_clearance=min_distance)
+                actual_x, actual_y = float(round(actual_x)), float(round(actual_y))
 
             obj_id = f"obj_{uuid.uuid4().hex[:8]}"
             obj = WorldObject(

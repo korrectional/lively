@@ -108,11 +108,13 @@ async def reset_world():
 @app.post("/api/objects")
 async def add_world_object(req: NewObjectRequest):
     """Add a new object or landmark to the world."""
+    rounded_x = float(round(float(req.x)))
+    rounded_y = float(round(float(req.y)))
     try:
         obj = world.add_object(
             name=req.name,
-            x=req.x,
-            y=req.y,
+            x=rounded_x,
+            y=rounded_y,
             obj_type=req.type,
             icon=req.icon,
             description=req.description,

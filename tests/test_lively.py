@@ -47,6 +47,11 @@ def test_world_manager(temp_dir):
         wm.add_object("Illegal Proximity", 125.0, -80.0, "sensor", "Too close", enforce_distance=True)
     assert "Too close to 'Cyber Beacon'" in str(excinfo.value)
 
+    # Adding an object with decimal coordinates should auto-round cleanly without manual intervention
+    obj_dec = wm.add_object("Decimal Beacon", 250.7, -310.2, "sensor", "Auto rounded", enforce_distance=True)
+    assert obj_dec.x == 251.0
+    assert obj_dec.y == -310.0
+
     # Check nearby objects
     nearby = wm.get_nearby_objects(100.0, -80.0, max_dist=50.0)
     assert any(o["name"] == "Cyber Beacon" for o in nearby)
@@ -251,6 +256,7 @@ def test_thought_sessions_and_email_inbox(temp_dir):
 
 def test_brain_action_parsing():
     brain = SquirrelBrain()
+    assert brain.effort == "medium"
     sample_output = """
 THINK: Sensing harmonic electromagnetic vibes in sector 4.
 MOVE_TO: 150.5, 200.0 | Scouting the northern boundary
@@ -338,7 +344,8 @@ def test_scheduler_manager(temp_dir):
     cfg_file = temp_dir / "schedule.json"
     sm = SchedulerManager(config_file=cfg_file)
 
-    # Initial state should be paused
+    # Ensure timer is paused
+    sm.set_schedule("paused")
     status = sm.get_status()
     assert status["frequency"] == "paused"
     assert status["active"] is False
@@ -346,6 +353,9 @@ def test_scheduler_manager(temp_dir):
     # Set to twice daily
     status = sm.set_schedule("twice_daily")
     assert status["frequency"] == "twice_daily"
+
+    # Always clean up and pause timer
+    sm.set_schedule("paused")
 
 def test_email_service_url(temp_dir):
     token_f = temp_dir / "token.json"

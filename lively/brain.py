@@ -13,7 +13,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Generator
 
-from lively.config import SQUIRREL_NAME, AGYC_BIN, USER_EMAIL
+from lively.config import SQUIRREL_NAME, AGYC_BIN, USER_EMAIL, AGYC_EFFORT
 from lively.world import world
 from lively.memory import memory
 from lively.projects import projects
@@ -23,8 +23,9 @@ from lively.models import SquirrelAction, WakeCycleResult
 class SquirrelBrain:
     """Orchestrates cognitive cycles, agyc interactions, and world actions."""
 
-    def __init__(self, agyc_bin: str = AGYC_BIN):
+    def __init__(self, agyc_bin: str = AGYC_BIN, effort: str = AGYC_EFFORT):
         self.agyc_bin = agyc_bin
+        self.effort = effort
 
     def find_agyc_executable(self) -> Optional[str]:
         """Locate agy or agyc binary on PATH or common locations."""
@@ -550,7 +551,9 @@ JOURNAL:
                         browse_cmd = [exe, "-p", f"/browser {query}", "--dangerously-skip-permissions"]
                         if exe.endswith(".py"):
                             browse_cmd = ["python", exe, "-p", f"/browser {query}", "--dangerously-skip-permissions"]
-                        res = subprocess.run(browse_cmd, capture_output=True, text=True, timeout=25)
+                        if "agy" in Path(exe).name.lower():
+                            browse_cmd.extend(["--effort", self.effort])
+                        res = subprocess.run(browse_cmd, capture_output=True, text=True, timeout=35)
                         if res.returncode == 0 and res.stdout.strip():
                             findings = res.stdout.strip()[:600]
                     except Exception:
@@ -709,8 +712,8 @@ JOURNAL:
                     cmd = ["python", exe]
                 cmd.extend(["-p", prompt])
                 if "agy" in Path(exe).name.lower():
-                    cmd.extend(["--effort", "low"])
-                res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                    cmd.extend(["--effort", self.effort])
+                res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
                 if res.returncode == 0 and res.stdout.strip():
                     output_text = res.stdout
                 else:

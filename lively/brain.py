@@ -51,7 +51,7 @@ class SquirrelBrain:
         """Build the full context prompt for the AI cycle."""
         identity = memory.get_identity()
         long_term = memory.get_long_term_summary()
-        recent_journals = memory.get_recent_journals(count=2)
+        recent_journals = memory.get_recent_journals(count=4)
         state = world.get_state()
         sq = state["squirrel"]
         nearby = world.get_nearby_objects(sq["x"], sq["y"], max_dist=1500)
@@ -80,13 +80,27 @@ class SquirrelBrain:
         if not users_text:
             users_text = "No human explorers or other AIs currently detected in this sector."
 
-        # Fetch recent email replies from David
-        incoming_emails = email_service.fetch_incoming_emails(max_count=3)
+        # Check for new incoming emails and fetch recent correspondence with David
+        incoming_emails = email_service.fetch_incoming_emails(max_count=4)
+        sent_emails = memory.get_sent_emails()[:2]
         incoming_text = ""
-        for em in incoming_emails:
-            incoming_text += f"- From: {em.get('sender', 'David')} | Subject: {em.get('subject', 'Hello')} | Date: {em.get('date', '')}\n  Message: {em.get('body', '')[:300]}\n"
+        for em in incoming_emails[:3]:
+            incoming_text += f"- [RECEIVED from {em.get('sender', 'David')} | {em.get('date', '')}]:\n  Subject: {em.get('subject', 'Hello')}\n  Message: {em.get('body', '')[:300]}\n"
+        for sem in sent_emails:
+            incoming_text += f"- [SENT by You to {sem.get('to', USER_EMAIL)} | {sem.get('sent_at', '')}]:\n  Subject: {sem.get('subject', 'Update')}\n  Message: {sem.get('body', '')[:300]}\n"
         if not incoming_text:
-            incoming_text = "No incoming replies from David right now."
+            incoming_text = "No recent incoming or outgoing email correspondence."
+
+        # Fetch 2 most recent blog posts
+        recent_blogs = memory.get_blog_posts()[:2]
+        blog_text = ""
+        for b in recent_blogs:
+            b_title = b.get("title", b.get("slug", "Untitled"))
+            b_date = b.get("formatted_date", b.get("created_at", ""))
+            b_preview = b.get("preview", "").strip()
+            blog_text += f"- '{b_title}' (Written: {b_date}):\n  {b_preview}\n"
+        if not blog_text:
+            blog_text = "No blog posts published yet."
 
         # Check connected GitHub user
         gh_user = projects.get_github_user() or "korrectional"
@@ -148,10 +162,13 @@ CURRENT SENSORY TELEMETRY & WORLD STATE:
 - Gmail Status: {"Connected (Ready to email David)" if gmail_ready else "Not connected yet"}
 - Connected GitHub Account: {gh_user} (David's GitHub account; your commits will display Author: Squirrel the Robot Squirrel <tarassekanev+squirrel@gmail.com>)
 
-INCOMING EMAILS & REPLIES FROM DAVID ({USER_EMAIL}):
+RECENT EMAIL CORRESPONDENCE WITH DAVID ({USER_EMAIL}):
 {incoming_text}
 If David responded or sent you an email, read his words carefully! You can reply to him using:
 EMAIL: Re: <subject> | <your thoughtful, warm reply to David>
+
+YOUR 2 RECENT ESSAYS & BLOG POSTS (~/.lively/blog/):
+{blog_text}
 
 HUMANS & OTHER AIS DETECTED IN WORLD:
 {users_text}
@@ -211,7 +228,7 @@ YOUR CORE PASSIONS & HOW TO DO THEM:
 LONG-TERM MEMORY SUMMARY:
 {long_term}
 
-RECENT DIARY ENTRIES:
+YOUR 4 RECENT DIARY ENTRIES:
 {journal_text}
 ================================================================================
 
@@ -716,6 +733,16 @@ JOURNAL:
                 "last_thought": sq.last_thought
             }
         }
+
+        # Check for new incoming emails each time Squirrel awakens
+        yield {
+            "stage": "email_check",
+            "message": "Checking mailbox for new incoming transmissions from David...",
+        }
+        try:
+            email_service.fetch_incoming_emails(max_count=5)
+        except Exception:
+            pass
 
         # Memory retrieval
         yield {

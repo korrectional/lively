@@ -5,6 +5,7 @@ Includes detailed cognitive tracing and thought streaming.
 """
 
 import os
+import sys
 import re
 import shutil
 import subprocess
@@ -26,19 +27,19 @@ class SquirrelBrain:
         self.agyc_bin = agyc_bin
 
     def find_agyc_executable(self) -> Optional[str]:
-        """Locate agyc or agy binary on PATH or common locations."""
-        for name in (self.agyc_bin, "agyc", "agy", "agyc.py"):
+        """Locate agy or agyc binary on PATH or common locations."""
+        for name in ("agy", self.agyc_bin, "agyc", "agyc.py"):
             loc = shutil.which(name)
             if loc:
                 return loc
         candidates = [
-            Path.home() / ".local" / "bin" / "agyc",
-            Path.home() / ".local" / "bin" / "agy",
-            Path("/usr/local/bin/agyc"),
             Path("/usr/local/bin/agy"),
+            Path("/usr/local/bin/agyc"),
+            Path.home() / ".local" / "bin" / "agy",
+            Path.home() / ".local" / "bin" / "agyc",
+            Path.home() / "AppData" / "Local" / "agy" / "bin" / "agy.exe",
             Path.home() / "AppData" / "Local" / "agy" / "bin" / "agyc.ps1",
             Path.home() / "AppData" / "Local" / "agy" / "bin" / "agyc.py",
-            Path.home() / "AppData" / "Local" / "agy" / "bin" / "agy.exe",
         ]
         for c in candidates:
             if c.exists():
@@ -645,19 +646,21 @@ JOURNAL:
                 if exe.endswith(".py"):
                     cmd = ["python", exe]
                 cmd.extend(["-p", prompt])
-                res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+                if "agy" in Path(exe).name.lower():
+                    cmd.extend(["--effort", "low"])
+                res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
                 if res.returncode == 0 and res.stdout.strip():
                     output_text = res.stdout
                 else:
                     yield {
                         "stage": "engine_notice",
-                        "message": f"agyc returned notice: {res.stderr[:200] or 'Authentication required'}. Proceeding with autonomous mind engine.",
+                        "message": f"Engine notice: {res.stderr[:200] or 'Authentication required'}. Proceeding with autonomous mind engine.",
                     }
                     output_text = self._generate_simulated_thoughts(cycle_num)
             except Exception as e:
                 yield {
                     "stage": "engine_error",
-                    "message": f"Error invoking agyc ({e}). Proceeding with autonomous mind engine."
+                    "message": f"Engine note ({e}). Proceeding with autonomous mind engine."
                 }
                 output_text = self._generate_simulated_thoughts(cycle_num)
 

@@ -1575,17 +1575,56 @@ function startThinkingStream() {
                 appendConsoleLine(`[SYNTHESIS] Context compiled. Input size: ${data.prompt.length} chars`, "prompt");
             } else if (stage === "llm_query") {
                 appendConsoleLine(`[NEURAL ENGINE] ${data.message}`, "system");
+            } else if (stage === "heartbeat") {
+                appendConsoleLine(`⚡ ${data.message}`, "prompt");
             } else if (stage === "engine_notice") {
                 appendConsoleLine(`[ENGINE NOTICE] ${data.message}`, "prompt");
+            } else if (stage === "engine_error") {
+                appendConsoleLine(`[ENGINE NOTICE] ${data.message}`, "prompt");
             } else if (stage === "raw_cognition") {
-                appendConsoleLine(`\n--- SQUIRREL MONOLOGUE ---`, "system");
-                const lines = data.raw_text.split("\n");
+                appendConsoleLine(`\n💭 --- SQUIRREL'S INNER MONOLOGUE ---`, "thought");
+                const rawText = data.raw_text || "";
+                const lines = rawText.split("\n");
+                let firstThought = "";
+                let firstActivity = "";
+
                 lines.forEach(l => {
-                    if (l.startsWith("THINK:")) appendConsoleLine(l, "thought");
-                    else if (l.startsWith("MOVE_TO:") || l.startsWith("BUILD_OBJECT:") || l.startsWith("WRITE_CODE:")) appendConsoleLine(l, "action");
-                    else if (l.trim()) appendConsoleLine(l, "system");
+                    const trimmed = l.trim();
+                    if (!trimmed || trimmed.startsWith("```")) return;
+                    if (trimmed.startsWith("THINK:")) {
+                        const content = trimmed.replace(/^THINK:\s*/, "");
+                        appendConsoleLine(`🧠 ${content}`, "thought");
+                        if (!firstThought) firstThought = content;
+                    } else if (trimmed.startsWith("MOVE_TO:")) {
+                        const content = trimmed.replace(/^MOVE_TO:\s*/, "");
+                        appendConsoleLine(`📍 Move: ${content}`, "action");
+                        if (!firstActivity) firstActivity = content;
+                    } else if (trimmed.startsWith("EMAIL:")) {
+                        appendConsoleLine(`✉️ Email: ${trimmed.replace(/^EMAIL:\s*/, "")}`, "scan");
+                    } else if (trimmed.startsWith("BUILD_OBJECT:")) {
+                        appendConsoleLine(`🔨 Build: ${trimmed.replace(/^BUILD_OBJECT:\s*/, "")}`, "action");
+                    } else if (trimmed.startsWith("CREATE_PROJECT:")) {
+                        appendConsoleLine(`📁 Project: ${trimmed.replace(/^CREATE_PROJECT:\s*/, "")}`, "memory");
+                    } else if (trimmed.startsWith("WRITE_PROJECT_FILE:") || trimmed.startsWith("WRITE_CODE:")) {
+                        appendConsoleLine(`💻 Code: ${trimmed}`, "memory");
+                    } else if (trimmed.startsWith("JOURNAL:")) {
+                        appendConsoleLine(`📖 Diary: ${trimmed.replace(/^JOURNAL:\s*/, "")}`, "system");
+                    } else {
+                        appendConsoleLine(trimmed, "system");
+                    }
                 });
-                appendConsoleLine(`--- END OF MONOLOGUE ---\n`, "system");
+
+                appendConsoleLine(`--- END OF MONOLOGUE ---\n`, "thought");
+
+                // Update live HUD thought bubble on map
+                if (firstThought) {
+                    const thoughtEl = document.getElementById("thought-text");
+                    if (thoughtEl) thoughtEl.innerText = firstThought;
+                }
+                if (firstActivity) {
+                    const actEl = document.getElementById("activity-text");
+                    if (actEl) actEl.innerText = firstActivity;
+                }
             } else if (stage === "actions_parsed") {
                 appendConsoleLine(`[DECISIONS] Materializing ${data.actions.length} action(s):`, "action");
                 data.actions.forEach(a => {

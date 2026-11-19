@@ -262,12 +262,36 @@ async def trigger_think_trace():
 async def websocket_think_stream(ws: WebSocket):
     """Real-time streaming WebSocket for watching Lively think live."""
     await ws.accept()
+    queue = asyncio.Queue()
+    loop = asyncio.get_event_loop()
+
+    def run_generator():
+        try:
+            for step in brain.think_trace():
+                loop.call_soon_threadsafe(queue.put_nowait, step)
+        except Exception as e:
+            loop.call_soon_threadsafe(queue.put_nowait, {"stage": "error", "message": str(e)})
+        finally:
+            loop.call_soon_threadsafe(queue.put_nowait, None)
+
+    task = loop.run_in_executor(None, run_generator)
     try:
-        loop = asyncio.get_event_loop()
-        gen = brain.think_trace()
-        for step in gen:
-            await ws.send_text(json.dumps(step))
-            await asyncio.sleep(0.08) # Natural reading pacing
+        while True:
+            try:
+                step = await asyncio.wait_for(queue.get(), timeout=2.5)
+                if step is None:
+                    break
+                await ws.send_text(json.dumps(step))
+                await asyncio.sleep(0.04) # Smooth reading pace
+            except asyncio.TimeoutError:
+                if task.done() and queue.empty():
+                    break
+                # Keepalive heartbeat during LLM deliberation
+                await ws.send_text(json.dumps({
+                    "stage": "heartbeat",
+                    "message": "Neural synapse firing... deliberating with Gemini core..."
+                }))
+
         # Broadcast final result to all world viewers
         await broadcast({
             "type": "squirrel_wake",

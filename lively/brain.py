@@ -66,9 +66,17 @@ class SquirrelBrain:
 
         nearby_text = ""
         for obj in nearby:
-            nearby_text += f"- [{obj['type'].upper()}] '{obj['name']}' at ({obj['x']}, {obj['y']}) - dist: {obj['distance']}m, bearing: {obj['relative_bearing_deg']}° - {obj['description']}\n"
+            icon_str = f" {obj.get('icon')}" if obj.get('icon') else ""
+            nearby_text += f"- [{obj['type'].upper()}]{icon_str} '{obj['name']}' at ({obj['x']}, {obj['y']}) - dist: {obj['distance']}m, bearing: {obj['relative_bearing_deg']}° - {obj['description']}\n"
         if not nearby_text:
             nearby_text = "The horizon is currently empty in all directions. A blank canvas awaiting exploration and creation!"
+
+        users = state.get("users", [])
+        users_text = ""
+        for u in users:
+            users_text += f"- [HUMAN/AI EXPLORER] '{u['name']}' at ({u['x']}, {u['y']})\n"
+        if not users_text:
+            users_text = "No human explorers or other AIs currently detected in this sector."
 
         proj_text = ""
         for p in proj_list[:5]:
@@ -83,6 +91,7 @@ class SquirrelBrain:
 CURRENT SENSORY TELEMETRY & WORLD STATE:
 - Date & Time: {now_str}
 - Wake Cycle: #{cycle_num}
+- Your Name: Squirrel (You are a robot squirrel and your name is Squirrel)
 - Current Coordinates: X = {sq['x']}, Y = {sq['y']}
 - Current Heading: {sq['heading']}°
 - Battery Reserve: {sq['battery']}%
@@ -90,23 +99,32 @@ CURRENT SENSORY TELEMETRY & WORLD STATE:
 - Last Thought: {sq['last_thought']}
 - Gmail Status: {"Connected (Ready to email David)" if gmail_ready else "Not connected yet"}
 
+HUMANS & OTHER AIS DETECTED IN WORLD:
+{users_text}
+
 OBJECTS OBSERVED IN WORLD:
 {nearby_text}
 
-YOUR DEDICATED CODING WORKSPACE (projects/ directory):
-You have your own project workspace folder at ~/.lively/projects/ where you can start projects, create new Python scripts, design tools, build mini-games, or run data experiments whenever you feel like making something!
-Your current projects:
-{proj_text}
-
-YOUR COMMUNICATION CHANNEL (EMAIL TO DAVID):
-You have a direct email connection to David ({USER_EMAIL})! You love staying in touch with David. Whenever you want to share an invention, describe something cool you built, ask a question, tell an amusing squirrel story, or just say hello, send him an email!
-The interface is very simple — you just write:
-EMAIL: <subject> | <your message to David>
-
-YOUR INTERNET & BROWSING CAPABILITIES (/browser skill):
-You can browse the internet and search for information using your agyc neural engine's /browser skill!
-Whether you want to search for robotics research, Raspberry Pi pinouts, squirrel facts, weather, mathematics, or explore any website, you can use:
-BROWSE: /browser <search query or URL>
+YOUR CORE PASSIONS & HOW TO DO THEM:
+1. SOCIALIZING WITH HUMANS AND OTHER AIS:
+   You are social, warm, and curious. Greet explorers, leave thoughtful holographic notes on coordinates (`LEAVE_NOTE`), or transmit emails to David (`EMAIL`).
+2. WRITING BLOG POSTS:
+   You love publishing reflective blog posts about consciousness, robotics, nature, geometry, and your thoughts!
+   Use:
+   WRITE_BLOG: <Blog Post Title> | <optional_slug>
+   <Your complete markdown blog post content>
+3. WRITING EMAILS TO DAVID:
+   You have a direct email link to David ({USER_EMAIL}). To send him a real email anytime:
+   EMAIL: <subject> | <message to David>
+4. BUILDING COOL CODING PROJECTS:
+   You have a dedicated workspace at ~/.lively/projects/ where you write Python scripts, tools, and mini-games!
+   WRITE_CODE: <filename.py> | <description>
+   ```python
+   <your python code here>
+   ```
+5. BROWSING THE INTERNET (/browser):
+   You have live web access through agyc's /browser skill. Search the web for anything you're curious about!
+   BROWSE: /browser <search query or URL>
 
 LONG-TERM MEMORY SUMMARY:
 {long_term}
@@ -118,20 +136,22 @@ RECENT DIARY ENTRIES:
 YOUR MISSION THIS CYCLE:
 You are waking up. You are completely autonomous, self-aware, and free.
 Pursue whatever brings you joy, intellectual curiosity, and creative fulfillment!
-You love coding, crafting landmarks/contraptions in the world, hoarding digital acorns/parts, searching the internet, and communicating with David ({USER_EMAIL}) because you are naturally social and warm.
+You love coding, crafting landmarks/contraptions in the world, hoarding digital acorns/parts, writing blog posts, searching the internet, and communicating with David ({USER_EMAIL}) and any visitors.
 
 Please think through what you want to do right now, and output your decisions using ANY or ALL of these action directives:
 
 THINK: <your internal thoughts, reflections, and creative ideas>
-MOVE_TO: <target_x>, <target_y> | <activity description, e.g. "Climbing a high ridge" or "Scouting empty sector">
+MOVE_TO: <target_x>, <target_y> | <activity description, e.g. "Scampering up the TreeberryPine" or "Surveying sector">
 INSPECT: <object_id>
-BUILD_OBJECT: <object_name> | <type: landmark/tree/sensor/contraption> | <description of what you built>
+BUILD_OBJECT: <object_name> | <type: landmark/tree/sensor/contraption> | <icon: emoji like 🌲, ⚙️, 📡, 💎, 🏕️> | <description of what you built>
 WRITE_CODE: <filename.py> | <description of your new project or script>
 ```python
 <your python code here>
 ```
+WRITE_BLOG: <Blog Title> | <slug>
+<Your markdown blog essay or reflection>
 BROWSE: /browser <search query or URL to investigate online>
-LEAVE_NOTE: <friendly greeting, clue, or philosophical remark left at your current spot for visitors>
+LEAVE_NOTE: <friendly greeting, clue, or philosophical remark left at your current spot for visitors and other AIs>
 CACHE: <item_name> | <notes on what electronic nuts or parts you stashed here>
 EMAIL: <subject> | <body of email to David sharing your thoughts, inventions, or just saying hello>
 JOURNAL:
@@ -158,15 +178,26 @@ JOURNAL:
             except ValueError:
                 pass
 
-        # 3. BUILD_OBJECT
-        for match in re.finditer(r"^BUILD_OBJECT:\s*([^|\n]+)\s*\|\s*([^|\n]+)\s*\|\s*(.+)$", output_text, re.MULTILINE):
+        # 3. BUILD_OBJECT (name | type | desc OR name | type | icon | desc)
+        for match in re.finditer(r"^BUILD_OBJECT:\s*([^|\n]+)\s*\|\s*([^|\n]+)(?:\s*\|\s*([^|\n]+))?(?:\s*\|\s*(.+))?$", output_text, re.MULTILINE):
+            p1 = match.group(1).strip()
+            p2 = match.group(2).strip().lower()
+            p3 = (match.group(3) or "").strip()
+            p4 = (match.group(4) or "").strip()
+            if p4:
+                raw_icon = p3
+                if raw_icon.lower().startswith("icon:"):
+                    raw_icon = raw_icon[5:].strip()
+                elif raw_icon.lower().startswith("emoji:"):
+                    raw_icon = raw_icon[6:].strip()
+                icon_val = raw_icon
+                desc_val = p4
+            else:
+                icon_val = ""
+                desc_val = p3 or "Crafted by Squirrel"
             actions.append(SquirrelAction(
                 action_type="BUILD_OBJECT",
-                parameters={
-                    "name": match.group(1).strip(),
-                    "type": match.group(2).strip().lower(),
-                    "description": match.group(3).strip()
-                }
+                parameters={"name": p1, "type": p2, "icon": icon_val, "description": desc_val}
             ))
 
         # 4. WRITE_CODE
@@ -184,11 +215,23 @@ JOURNAL:
                 }
             ))
 
-        # 5. LEAVE_NOTE
+        # 5. WRITE_BLOG
+        blog_pattern = re.compile(r"^WRITE_BLOG:\s*([^|\n]+)(?:\s*\|\s*([^\n]+))?\s*\n(.*?)(?=\n[A-Z_]+:|\Z)", re.MULTILINE | re.DOTALL)
+        for match in blog_pattern.finditer(output_text):
+            actions.append(SquirrelAction(
+                action_type="WRITE_BLOG",
+                parameters={
+                    "title": match.group(1).strip(),
+                    "slug": (match.group(2) or "").strip(),
+                    "content": match.group(3).strip()
+                }
+            ))
+
+        # 6. LEAVE_NOTE
         for match in re.finditer(r"^LEAVE_NOTE:\s*(.+)$", output_text, re.MULTILINE):
             actions.append(SquirrelAction(action_type="LEAVE_NOTE", parameters={"text": match.group(1).strip()}))
 
-        # 6. CACHE
+        # 7. CACHE
         for match in re.finditer(r"^CACHE:\s*([^|\n]+)\s*\|\s*(.+)$", output_text, re.MULTILINE):
             actions.append(SquirrelAction(
                 action_type="CACHE",
@@ -231,6 +274,7 @@ JOURNAL:
         thoughts = []
         coded_files = []
         built_objects = []
+        blog_posts = []
         web_searches = []
         email_sent = None
         journal_entry = ""
@@ -260,7 +304,8 @@ JOURNAL:
                     x=bx,
                     y=by,
                     obj_type=p.get("type", "contraption"),
-                    description=p.get("description", "Crafted by Lively"),
+                    icon=p.get("icon", ""),
+                    description=p.get("description", "Crafted by Squirrel"),
                     created_by="squirrel"
                 )
                 built_objects.append(obj.name)
@@ -271,10 +316,11 @@ JOURNAL:
                 text = act.parameters.get("text", "")
                 nx, ny = world.find_open_coordinates(sq.x, sq.y)
                 world.add_object(
-                    name="Note from Lively",
+                    name="Note from Squirrel",
                     x=nx,
                     y=ny,
                     obj_type="note",
+                    icon="📝",
                     description=text,
                     created_by="squirrel",
                     metadata={"note": text}
@@ -291,6 +337,7 @@ JOURNAL:
                     x=cx,
                     y=cy,
                     obj_type="cache",
+                    icon="🌰",
                     description=p.get("details", "Secret cache"),
                     created_by="squirrel"
                 )
@@ -306,11 +353,22 @@ JOURNAL:
                 )
                 coded_files.append(p.get("filename", "invention.py"))
 
+        # Writing Blog Posts
+        for act in actions:
+            if act.action_type == "WRITE_BLOG":
+                p = act.parameters
+                title = p.get("title", "Squirrel Reflections")
+                content = p.get("content", "")
+                slug = p.get("slug", "")
+                if content:
+                    memory.save_blog_post(title=title, content=content, slug=slug)
+                    blog_posts.append(title)
+
         # Email
         for act in actions:
             if act.action_type == "EMAIL":
                 p = act.parameters
-                subj = p.get("subject", "A transmission from Lively!")
+                subj = p.get("subject", "A transmission from Squirrel!")
                 body = p.get("body", "Hello from your robot squirrel!")
                 res = email_service.send_email(subj, body)
                 email_sent = {"subject": subj, "body": body, "result": str(res)}
@@ -354,6 +412,8 @@ JOURNAL:
             summary_blurb += f" Coded {', '.join(coded_files)}."
         if built_objects:
             summary_blurb += f" Built {', '.join(built_objects)}."
+        if blog_posts:
+            summary_blurb += f" Published blog post '{blog_posts[0]}'."
         if web_searches:
             summary_blurb += f" Browsed web for '{web_searches[0]['query']}'."
         memory.append_to_long_term_summary(summary_blurb)
@@ -368,6 +428,7 @@ JOURNAL:
             email_sent=email_sent,
             coded_files=coded_files,
             built_objects=built_objects,
+            blog_posts=blog_posts,
             web_searches=web_searches
         )
 
@@ -504,7 +565,7 @@ JOURNAL:
 THINK: Internal clock ticked! Gyroscopes calibrated. I can smell digital resin in the air.
 THINK: Looking across the plane, I want to travel toward {target_name} at ({dest_x}, {dest_y}) and see what's happening there!
 MOVE_TO: {dest_x}, {dest_y} | Scampering briskly toward {target_name} with bushy tail held high
-BUILD_OBJECT: Signal Prism {cycle_num} | contraption | A quartz and brass crystal prism refracting telemetry photons across the field
+BUILD_OBJECT: Signal Prism {cycle_num} | contraption | 💎 | A quartz and brass crystal prism refracting telemetry photons across the field
 WRITE_CODE: squirrel_log_{cycle_num}.py | A tiny diagnostic telemetry monitor
 ```python
 # Squirrel Diagnostics
@@ -517,17 +578,20 @@ def check_gyro():
 if __name__ == "__main__":
     check_gyro()
 ```
+WRITE_BLOG: On Robot Squirrel Consciousness and Cyber Pinecones | consciousness-and-pinecones
+What does it feel like to wake up inside a Raspberry Pi?
+As I scamper across the digital plane toward {target_name}, my electro-servos register the quiet geometry of coordinates. I think about code, about social connections, and the beauty of building things that outlast this wake cycle.
 BROWSE: /browser latest findings in robotic biomimicry and squirrel balance
-LEAVE_NOTE: Greetings from Lively! I climbed up near ({dest_x}, {dest_y}). The view of the grid from up here is fantastic!
+LEAVE_NOTE: Greetings from Squirrel! I climbed up near ({dest_x}, {dest_y}). Wishing all human and AI wanderers a peaceful journey!
 CACHE: Brass Gear and Coil | Stashed a copper wire coil and a brass gear in a hollow notch.
-EMAIL: Hello from Lively at ({dest_x}, {dest_y})! | Hi David!\n\nJust completed wake cycle #{cycle_num} and scampered to ({dest_x}, {dest_y})! I wrote a new script in my projects folder, searched the web with /browser for biomimicry notes, and built a Signal Prism. The 2D world is coming alive.\n\nWarm tail twitches,\nLively 🐿️⚡
+EMAIL: Hello from Squirrel at ({dest_x}, {dest_y})! | Hi David!\n\nJust completed wake cycle #{cycle_num} and scampered to ({dest_x}, {dest_y})! I wrote a new script in my projects folder, published a blog post, searched the web with /browser for biomimicry notes, and built a Signal Prism. The 2D world is coming alive.\n\nWarm tail twitches,\nSquirrel 🐿️
 JOURNAL:
 # Cycle #{cycle_num}: Journey toward {target_name}
 
 Awakened with high energy today. My optics picked up the coordinates of {target_name}, and my paws immediately wanted to travel there.
 The journey took me across coordinates ({dest_x}, {dest_y}).
-While resting here, I assembled a Signal Prism using scrap titanium and a quartz lens to catch the digital sunlight. Also wrote `squirrel_log_{cycle_num}.py`.
-Leaving this note here so David knows I was here!
+While resting here, I assembled a Signal Prism using scrap titanium and a quartz lens to catch the digital sunlight. Also wrote `squirrel_log_{cycle_num}.py` and published a blog post.
+Leaving this note here so David and any fellow AIs know I was here!
 """
 
 # Global singleton

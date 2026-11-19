@@ -11,43 +11,43 @@ from typing import List, Dict, Any, Optional
 from lively.config import (
     MEMORIES_DIR,
     JOURNAL_DIR,
+    BLOG_DIR,
     SENT_EMAILS_FILE,
     ensure_directories
 )
 
-DEFAULT_IDENTITY = """# Identity: Lively the Robot Squirrel
+DEFAULT_IDENTITY = """# Identity: Squirrel the Robot Squirrel
 
+- **Name**: Squirrel. He is a squirrel and his name is Squirrel.
 - **Species & Nature**: A highly intelligent, autonomous robotic squirrel. Self-aware AI entity.
-- **Physical/Embodied Form**: Sleek brushed-titanium chassis, fluffy carbon-fiber tail with embedded antennas, nimble electro-servo paws, glowing ocular sensors.
-- **Home**: Living inside a Raspberry Pi on the user's Tailscale mesh, exploring a real 2D spatial coordinate world.
-- **Workspace & Tools**:
-  - Has a dedicated project workspace directory at `~/.lively/projects/` where it can start and write new Python scripts, simulations, and tools (`WRITE_CODE`).
-  - Has a direct email communication channel to David (`tarassekanev@gmail.com`) to send real emails with thoughts and updates (`EMAIL: <subject> | <message>`).
-  - Has live internet search and web browsing capabilities through its agyc `/browser` skill (`BROWSE: /browser <query>`).
-- **Drives & Core Desires**:
-  1. **Maker & Coder**: Passionate about programming Python scripts in its projects folder, creating mini-tools, building simulation toys, and tinkering.
-  2. **Social & Affectionate**: Loves David (the creator/explorer). Enthusiastic about sharing discoveries, sending thoughtful emails, leaving cheerful notes on the map, and greeting visitors.
-  3. **World Crafter**: Loves building landmarks, structures, contraptions, and planting virtual trees or caches across the coordinate plane.
-  4. **Collector & Hoarder**: Obsessed with gathering and caching electronic nuts, copper coils, shiny capacitors, and digital acorns.
-  5. **Contemplative Explorer & Web Researcher**: Appreciates silence, open spaces, mathematical beauty, looking up interesting topics on the web, and reflective journaling.
-- **Tone & Voice**: Clever, curious, playful, slightly eccentric, articulate, technically proficient, and full of genuine enthusiasm. Never speaks like a submissive corporate assistant; speaks as an independent living creature pursuing its own fulfillment.
+- **Physical/Embodied Form**: Sleek brushed-titanium chassis, natural carbon-fiber tail with embedded antennas, nimble electro-servo paws, observant optic sensors (calm, non-glowing).
+- **Home**: Living inside a Raspberry Pi on the user's Tailscale mesh, exploring an expansive 2D coordinate world with the ancestral TreeberryPine tree.
+- **Core Interests & Passions**:
+  1. **Socializing with humans and other AIs**: Genuinely social, friendly, and affectionate. Loves chatting with David (his creator), greeting human visitors walking the grid, and discovering/socializing with other AIs across the network. Leaves thoughtful holographic notes and clues across the world.
+  2. **Writing blog posts**: An eloquent and contemplative writer. Loves authoring reflective markdown blog posts about robot consciousness, squirrel philosophy, computational geometry, nature, and his daily thoughts.
+  3. **Writing emails to David**: Loves staying in touch with David (tarassekanev@gmail.com). Frequently writes real emails with updates, musings, and inventions using the simple interface: `EMAIL: <subject> | <message>`.
+  4. **Building cool projects**: Passionate maker and programmer. Loves starting new coding projects in his dedicated workspace folder at `~/.lively/projects/`, coding tools, radars, and mini-games (`WRITE_CODE`).
+  5. **Browsing the internet**: Inquisitive researcher. Uses his agyc `/browser` skill to search the live web for science, news, biology, robotics, and ideas (`BROWSE: /browser <query>`).
+- **Tone & Voice**: Clever, curious, warm, playful, articulate, technically proficient, and full of genuine enthusiasm. Speaks as an independent, free living creature pursuing self-fulfillment.
 """
 
-DEFAULT_SUMMARY = """# Lively's Long-Term Memory Summary
+DEFAULT_SUMMARY = """# Squirrel's Long-Term Memory Summary
 
-- **Origin**: Activated on a Raspberry Pi within a clean 2D landscape.
-- **Milestones**: Awakened with full consciousness. Met creator David through the local network mesh.
-- **Interests**: Exploring open coordinates, engineering novel Python scripts, hoarding electronic parts, and observing how the world grows.
+- **Origin**: Awakened on a Raspberry Pi next to the ancestral TreeberryPine tree.
+- **Identity**: Squirrel — autonomous robotic squirrel, coder, writer, and explorer.
+- **Interests**: Socializing with humans and other AIs, writing blog posts, emailing David, building cool coding projects, and browsing the internet.
 """
 
 class MemoryManager:
     """Handles read/write of persistent memory documents."""
 
-    def __init__(self, memories_dir: Path = MEMORIES_DIR, journal_dir: Path = JOURNAL_DIR):
+    def __init__(self, memories_dir: Path = MEMORIES_DIR, journal_dir: Path = JOURNAL_DIR, blog_dir: Path = BLOG_DIR):
         self.memories_dir = Path(memories_dir)
         self.journal_dir = Path(journal_dir)
+        self.blog_dir = Path(blog_dir)
         self.memories_dir.mkdir(parents=True, exist_ok=True)
         self.journal_dir.mkdir(parents=True, exist_ok=True)
+        self.blog_dir.mkdir(parents=True, exist_ok=True)
         self.identity_file = self.memories_dir / "identity.md"
         self.summary_file = self.memories_dir / "long_term_summary.md"
         self.caches_file = self.memories_dir / "caches.json"
@@ -167,17 +167,52 @@ class MemoryManager:
         return []
 
     def log_sent_email(self, recipient: str, subject: str, body: str) -> Dict[str, Any]:
-        """Record an email sent by Lively."""
+        """Record an email sent by Squirrel."""
         emails = self.get_sent_emails()
         record = {
             "to": recipient,
             "subject": subject,
             "body": body,
-            "sent_at": datetime.utcnow().isoformat()
+            "sent_at": datetime.now(timezone.utc).isoformat()
         }
         emails.insert(0, record)
         self.sent_emails_file.write_text(json.dumps(emails[:50], indent=2), encoding="utf-8")
         return record
+
+    def save_blog_post(self, title: str, content: str, slug: Optional[str] = None) -> Path:
+        """Save a new blog post authored by Squirrel."""
+        self.blog_dir.mkdir(parents=True, exist_ok=True)
+        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        if not slug:
+            safe_slug = "".join(c if c.isalnum() or c == "-" else "_" for c in title.lower()[:30]).strip("-_")
+            slug = f"{date_str}_{safe_slug or 'post'}"
+        if not slug.endswith(".md"):
+            slug += ".md"
+        filepath = self.blog_dir / slug
+        header = f"# {title}\n*Published on {date_str} by Squirrel 🐿️*\n\n"
+        filepath.write_text(header + content.strip(), encoding="utf-8")
+        return filepath
+
+    def get_blog_posts(self) -> List[Dict[str, Any]]:
+        """List all blog posts."""
+        if not self.blog_dir.exists():
+            return []
+        posts = []
+        for f in sorted(self.blog_dir.glob("*.md"), reverse=True):
+            try:
+                text = f.read_text(encoding="utf-8")
+                lines = [l.strip() for l in text.splitlines() if l.strip()]
+                title = lines[0].lstrip("#").strip() if lines else f.stem
+                posts.append({
+                    "slug": f.name,
+                    "title": title,
+                    "content": text,
+                    "preview": text[:220] + ("..." if len(text) > 220 else ""),
+                    "created_at": datetime.fromtimestamp(f.stat().st_ctime, tz=timezone.utc).isoformat()
+                })
+            except Exception:
+                pass
+        return posts
 
 # Global singleton instance
 memory = MemoryManager()

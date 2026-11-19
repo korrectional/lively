@@ -35,6 +35,7 @@ class NewObjectRequest(BaseModel):
     x: float
     y: float
     type: str = "landmark"
+    icon: str = ""
     description: str = ""
 
 class NewProjectRequest(BaseModel):
@@ -95,6 +96,7 @@ async def add_world_object(req: NewObjectRequest):
         x=req.x,
         y=req.y,
         obj_type=req.type,
+        icon=req.icon,
         description=req.description,
         created_by="user"
     )
@@ -257,6 +259,15 @@ async def get_system_info():
         "gmail_connected": email_service.is_authenticated()
     }
 
+class ConnectAppPasswordRequest(BaseModel):
+    user_email: str
+    app_password: str
+
+@app.get("/api/blog")
+async def get_blog_posts():
+    """List blog posts authored by Squirrel."""
+    return memory.get_blog_posts()
+
 # Gmail Configuration & Endpoints
 @app.get("/api/settings/gmail")
 async def get_gmail_settings():
@@ -268,6 +279,30 @@ async def get_gmail_settings():
     if cfg.get("client_secret"):
         cfg["client_secret_masked"] = "••••" + cfg["client_secret"][-4:] if len(cfg["client_secret"]) > 4 else "••••"
     return cfg
+
+@app.post("/api/settings/gmail/connect")
+async def connect_gmail_app_password(req: ConnectAppPasswordRequest):
+    """Verify credentials with Google SMTP and save."""
+    verify_res = email_service.verify_app_password(req.user_email, req.app_password)
+    if not verify_res["success"]:
+        return verify_res
+
+    email_service.save_settings(
+        method="app_password",
+        user_email=req.user_email,
+        app_password=req.app_password
+    )
+    return {
+        "success": True,
+        "message": "Connected! Squirrel can now email you.",
+        "settings": email_service.get_settings()
+    }
+
+@app.post("/api/settings/gmail/disconnect")
+async def disconnect_gmail():
+    """Disconnect Gmail credentials."""
+    email_service.save_settings(method="oauth", user_email=USER_EMAIL, app_password="")
+    return {"success": True, "message": "Gmail disconnected.", "authenticated": False}
 
 @app.post("/api/settings/gmail")
 async def save_gmail_settings(req: GmailSettingsRequest):
@@ -353,7 +388,8 @@ async def websocket_endpoint(ws: WebSocket):
                 x = float(data.get("x", 0))
                 y = float(data.get("y", 0))
                 name = str(data.get("name", "Explorer"))
-                user = world.update_user_position(user_id, name, x, y)
+                avatar_type = str(data.get("avatar_type", "scout"))
+                user = world.update_user_position(user_id, name, x, y, avatar_type=avatar_type)
                 await broadcast({
                     "type": "user_moved",
                     "user": user.model_dump()

@@ -91,6 +91,25 @@ class EmailService:
 
         return self.get_settings()
 
+    @staticmethod
+    def verify_app_password(user_email: str, app_password: str) -> Dict[str, Any]:
+        """Verify Gmail SMTP credentials directly against smtp.gmail.com:465."""
+        clean_pwd = app_password.replace(" ", "").strip()
+        clean_email = user_email.strip()
+        if not clean_email or not clean_pwd:
+            return {"success": False, "error": "Email address and 16-character App Password are required."}
+        try:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=12) as server:
+                server.login(clean_email, clean_pwd)
+            return {"success": True, "message": "Google SMTP authenticated successfully!"}
+        except smtplib.SMTPAuthenticationError as e:
+            return {
+                "success": False,
+                "error": "Google rejected the password (535 Authentication failed). Make sure 2-Step Verification is enabled on your Google Account and you generated a 16-character App Password at https://myaccount.google.com/apppasswords"
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Failed connecting to Gmail SMTP: {e}"}
+
     def is_authenticated(self) -> bool:
         """Check if email sending is configured and ready."""
         # 1. Check App Password mode
@@ -215,7 +234,7 @@ class EmailService:
             try:
                 msg = MIMEText(body, "plain", "utf-8")
                 msg["Subject"] = subject
-                msg["From"] = f"Lively the Robot Squirrel <{sender}>"
+                msg["From"] = f"Squirrel the Robot Squirrel <{sender}>"
                 msg["To"] = target_email
 
                 with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=12) as server:
@@ -233,7 +252,7 @@ class EmailService:
         if access_token:
             message = MIMEText(body, "plain", "utf-8")
             message["to"] = target_email
-            message["from"] = f"Lively the Robot Squirrel <{target_email}>"
+            message["from"] = f"Squirrel the Robot Squirrel <{target_email}>"
             message["subject"] = subject
 
             raw_b64 = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")

@@ -16,19 +16,20 @@ class WorldObject(BaseModel):
     x: float
     y: float
     type: str = "landmark"  # landmark, tree, cache, sensor, note, contraption
+    icon: str = ""  # Custom emoji or icon identifier
     description: str = ""
     created_by: str = "user"  # "user" or "squirrel"
     created_at: str = Field(default_factory=current_utc_iso)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 class SquirrelState(BaseModel):
-    name: str = "Lively"
+    name: str = "Squirrel"
     x: float = 0.0
     y: float = 0.0
     heading: float = 0.0  # Angle in degrees
     battery: int = 100
-    current_activity: str = "Resting in cache tree"
-    last_thought: str = "System boot sequence complete. Thinking about nuts and cyber-circuits."
+    current_activity: str = "Resting in TreeberryPine"
+    last_thought: str = "System boot sequence complete. Thinking about nuts, coding, and the open grid."
     last_wake_time: Optional[str] = None
     total_cycles: int = 0
     total_distance_traveled: float = 0.0
@@ -38,6 +39,7 @@ class UserAvatar(BaseModel):
     name: str = "Explorer"
     x: float = 0.0
     y: float = 0.0
+    avatar_type: str = "scout"  # scout, mech, nomad, cyberfox, orb
     last_active: float = Field(default_factory=time.time)
 
 class CodedProject(BaseModel):
@@ -48,7 +50,7 @@ class CodedProject(BaseModel):
     updated_at: str = Field(default_factory=current_utc_iso)
 
 class SquirrelAction(BaseModel):
-    action_type: str  # THINK, MOVE_TO, INSPECT, BUILD_OBJECT, WRITE_CODE, LEAVE_NOTE, CACHE, EMAIL, BROWSE, JOURNAL
+    action_type: str  # THINK, MOVE_TO, INSPECT, BUILD_OBJECT, WRITE_CODE, WRITE_BLOG, LEAVE_NOTE, CACHE, EMAIL, BROWSE, JOURNAL
     parameters: Dict[str, Any] = Field(default_factory=dict)
     raw_text: str = ""
 
@@ -62,4 +64,5 @@ class WakeCycleResult(BaseModel):
     email_sent: Optional[Dict[str, str]] = None
     coded_files: List[str] = Field(default_factory=list)
     built_objects: List[str] = Field(default_factory=list)
+    blog_posts: List[str] = Field(default_factory=list)
     web_searches: List[Dict[str, str]] = Field(default_factory=list)

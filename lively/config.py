@@ -12,6 +12,7 @@ BASE_DATA_DIR = Path(os.getenv("LIVELY_DATA_DIR", Path.home() / ".lively")).reso
 MEMORIES_DIR = BASE_DATA_DIR / "memories"
 JOURNAL_DIR = MEMORIES_DIR / "journal"
 PROJECTS_DIR = BASE_DATA_DIR / "projects"
+BLOG_DIR = BASE_DATA_DIR / "blog"
 WORLD_FILE = BASE_DATA_DIR / "world.json"
 GMAIL_TOKEN_FILE = BASE_DATA_DIR / "gmail_token.json"
 GMAIL_CREDENTIALS_FILE = BASE_DATA_DIR / "gmail_credentials.json"
@@ -30,7 +31,7 @@ WORLD_MIN_Y = -1000
 WORLD_MAX_Y = 1000
 
 # Squirrel specifics
-SQUIRREL_NAME = "Lively"
+SQUIRREL_NAME = "Squirrel"
 USER_EMAIL = os.getenv("LIVELY_USER_EMAIL", "tarassekanev@gmail.com")
 AGYC_BIN = os.getenv("AGYC_BIN", "agyc")
 
@@ -40,3 +41,4 @@ def ensure_directories():
     MEMORIES_DIR.mkdir(parents=True, exist_ok=True)
     JOURNAL_DIR.mkdir(parents=True, exist_ok=True)
     PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
+    BLOG_DIR.mkdir(parents=True, exist_ok=True)

@@ -18,6 +18,7 @@ const state = {
         targetY: 20,
         speed: 6
     },
+    avatarType: localStorage.getItem("lively_avatar_type") || "scout",
     myUserId: null,
     camera: {
         x: 0,
@@ -144,18 +145,7 @@ function drawRobotSquirrel(c, x, y, scale, heading, time) {
     const facingLeft = (heading > 90 && heading < 270);
     if (facingLeft) c.scale(-1, 1);
 
-    // Radiating energy pulse aura
-    const pulse = (Math.sin(time * 0.003) + 1) * 0.5;
-    const auraGrad = c.createRadialGradient(0, 0, 5, 0, 0, 38 + pulse * 8);
-    auraGrad.addColorStop(0, "rgba(245, 158, 11, 0.35)");
-    auraGrad.addColorStop(0.7, "rgba(245, 158, 11, 0.08)");
-    auraGrad.addColorStop(1, "rgba(245, 158, 11, 0)");
-    c.fillStyle = auraGrad;
-    c.beginPath();
-    c.arc(0, 0, 42, 0, Math.PI * 2);
-    c.fill();
-
-    // Tail: Segmented mechanical tail with glowing cyan joints
+    // Tail: Segmented mechanical tail
     c.save();
     c.translate(-14, 2);
     c.rotate(-0.4 + Math.sin(time * 0.005) * 0.1);
@@ -168,16 +158,15 @@ function drawRobotSquirrel(c, x, y, scale, heading, time) {
     c.strokeStyle = "#334155";
     c.stroke();
 
-    // Inner glowing power line
-    c.strokeStyle = "#06b6d4";
+    // Inner power line
+    c.strokeStyle = "#0891b2";
     c.lineWidth = 2.5;
     c.stroke();
 
-    // Blinking antenna bulb at tip of tail
-    const blink = Math.sin(time * 0.008) > 0;
-    c.fillStyle = blink ? "#ef4444" : "#f59e0b";
+    // Small antenna tip at tail
+    c.fillStyle = "#f59e0b";
     c.beginPath();
-    c.arc(-8, -32, 3.5, 0, Math.PI * 2);
+    c.arc(-8, -32, 3, 0, Math.PI * 2);
     c.fill();
     c.restore();
 
@@ -214,11 +203,9 @@ function drawRobotSquirrel(c, x, y, scale, heading, time) {
     c.lineTo(8, -19);
     c.fill();
 
-    // Eye: Glowing cyan visor sensor with blink
+    // Eye: Non-glowing calm visor sensor with natural blink
     const isBlinking = (Math.sin(time * 0.001) > 0.96);
-    c.fillStyle = isBlinking ? "#0891b2" : "#22d3ee";
-    c.shadowColor = "#06b6d4";
-    c.shadowBlur = isBlinking ? 0 : 8;
+    c.fillStyle = isBlinking ? "#0891b2" : "#0284c7";
     c.beginPath();
     if (isBlinking) {
         c.rect(7, -13, 6, 1.5);
@@ -226,7 +213,6 @@ function drawRobotSquirrel(c, x, y, scale, heading, time) {
         c.ellipse(10, -13, 3.5, 3.5, 0, 0, Math.PI * 2);
     }
     c.fill();
-    c.shadowBlur = 0;
 
     // Nose/snout
     c.fillStyle = "#0f172a";
@@ -432,41 +418,218 @@ function drawContraption(c, x, y, scale, time) {
     c.restore();
 }
 
-// 7. Player Avatar
-function drawPlayer(c, x, y, scale, name) {
+// 7. Custom Object with User-Selected Icon
+function drawCustomIconObject(c, x, y, scale, icon, time) {
     c.save();
     c.translate(x, y);
     c.scale(scale, scale);
 
-    // Personal light cone / aura
-    const light = c.createRadialGradient(0, 0, 4, 0, 0, 24);
-    light.addColorStop(0, "rgba(6, 182, 212, 0.3)");
-    light.addColorStop(1, "rgba(6, 182, 212, 0)");
-    c.fillStyle = light;
+    // Subtle holographic circular base pedestal
+    c.fillStyle = "rgba(6, 182, 212, 0.15)";
+    c.strokeStyle = "rgba(6, 182, 212, 0.6)";
+    c.lineWidth = 1.2;
     c.beginPath();
-    c.arc(0, 0, 24, 0, Math.PI * 2);
+    c.ellipse(0, 8, 14, 5, 0, 0, Math.PI * 2);
     c.fill();
-
-    // Suit Body
-    c.fillStyle = "#e2e8f0";
-    c.beginPath();
-    c.ellipse(0, 2, 9, 11, 0, 0, Math.PI * 2);
-    c.fill();
-    c.strokeStyle = "#0891b2";
-    c.lineWidth = 1;
     c.stroke();
 
-    // Helmet
-    c.fillStyle = "#0284c7";
-    c.beginPath();
-    c.arc(0, -9, 8, 0, Math.PI * 2);
-    c.fill();
+    // Gentle floating bob
+    const bob = Math.sin(time * 0.003) * 1.5;
+    c.translate(0, bob);
 
-    // Golden Visor
-    c.fillStyle = "#f59e0b";
-    c.beginPath();
-    c.ellipse(2, -9, 5, 4, 0.1, 0, Math.PI * 2);
-    c.fill();
+    // Render Chosen Emoji Icon
+    c.font = "24px sans-serif";
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.fillText(icon, 0, -4);
+
+    c.restore();
+}
+
+// 8. Player Avatar (Customizable Sci-Fi Explorer)
+function drawPlayer(c, x, y, scale, name, avatarType = "scout", time = 0) {
+    c.save();
+    c.translate(x, y);
+    c.scale(scale, scale);
+
+    const hover = Math.sin((time + (name ? name.charCodeAt(0) * 80 : 0)) * 0.005) * 3;
+    c.translate(0, hover);
+
+    if (avatarType === "mech") {
+        // --- 1. Cyber Mech Pilot ---
+        c.fillStyle = "rgba(0, 0, 0, 0.4)";
+        c.beginPath();
+        c.ellipse(0, 18, 14, 5, 0, 0, Math.PI * 2);
+        c.fill();
+
+        c.strokeStyle = "#475569";
+        c.lineWidth = 3.5;
+        c.beginPath();
+        c.moveTo(-6, 4); c.lineTo(-8, 14); c.lineTo(-11, 16);
+        c.moveTo(6, 4); c.lineTo(8, 14); c.lineTo(11, 16);
+        c.stroke();
+
+        c.fillStyle = "#1e293b";
+        c.strokeStyle = "#0ea5e9";
+        c.lineWidth = 1.5;
+        c.beginPath();
+        c.roundRect(-12, -8, 24, 18, 4);
+        c.fill();
+        c.stroke();
+
+        c.fillStyle = "#334155";
+        c.fillRect(-15, -12, 5, 8);
+        c.fillRect(10, -12, 5, 8);
+
+        c.fillStyle = "#06b6d4";
+        c.fillRect(-7, -4, 14, 4);
+
+    } else if (avatarType === "nomad") {
+        // --- 2. Star Nomad Astronaut ---
+        c.fillStyle = "rgba(0, 0, 0, 0.35)";
+        c.beginPath();
+        c.ellipse(0, 16, 12, 4, 0, 0, Math.PI * 2);
+        c.fill();
+
+        c.fillStyle = "#475569";
+        c.fillRect(-10, -6, 20, 12);
+
+        c.fillStyle = "#f59e0b";
+        c.beginPath();
+        c.moveTo(-6, 6); c.lineTo(-4, 12 + Math.random() * 4); c.lineTo(-2, 6);
+        c.moveTo(2, 6); c.lineTo(4, 12 + Math.random() * 4); c.lineTo(6, 6);
+        c.fill();
+
+        c.fillStyle = "#f1f5f9";
+        c.beginPath();
+        c.ellipse(0, 0, 8, 11, 0, 0, Math.PI * 2);
+        c.fill();
+
+        c.fillStyle = "#0284c7";
+        c.beginPath();
+        c.arc(0, -9, 7.5, 0, Math.PI * 2);
+        c.fill();
+        c.fillStyle = "#f59e0b";
+        c.beginPath();
+        c.ellipse(1, -9, 4.5, 3.5, 0, 0, Math.PI * 2);
+        c.fill();
+
+    } else if (avatarType === "cyberfox") {
+        // --- 3. Synth Fox ---
+        c.fillStyle = "rgba(0, 0, 0, 0.35)";
+        c.beginPath();
+        c.ellipse(0, 14, 14, 5, 0, 0, Math.PI * 2);
+        c.fill();
+
+        c.fillStyle = "#f97316";
+        c.beginPath();
+        c.ellipse(0, 2, 11, 8, 0, 0, Math.PI * 2);
+        c.fill();
+
+        c.fillStyle = "#f8fafc";
+        c.beginPath();
+        c.ellipse(4, 2, 5, 5, 0, 0, Math.PI * 2);
+        c.fill();
+
+        c.fillStyle = "#ea580c";
+        c.beginPath();
+        c.arc(7, -6, 6, 0, Math.PI * 2);
+        c.fill();
+        c.beginPath();
+        c.moveTo(4, -10); c.lineTo(6, -17); c.lineTo(9, -11);
+        c.moveTo(8, -10); c.lineTo(12, -16); c.lineTo(13, -9);
+        c.fill();
+
+        c.fillStyle = "#22d3ee";
+        c.fillRect(8, -7, 4, 2);
+
+        c.strokeStyle = "#fdba74";
+        c.lineWidth = 2.5;
+        c.beginPath();
+        c.moveTo(-9, 0); c.quadraticCurveTo(-18, -4, -14, -14);
+        c.stroke();
+
+    } else if (avatarType === "orb") {
+        // --- 4. Holo Orb ---
+        c.fillStyle = "rgba(0, 0, 0, 0.3)";
+        c.beginPath();
+        c.ellipse(0, 20, 10, 4, 0, 0, Math.PI * 2);
+        c.fill();
+
+        c.save();
+        c.rotate(time * 0.002);
+        c.strokeStyle = "#38bdf8";
+        c.lineWidth = 1.5;
+        c.beginPath();
+        c.ellipse(0, 0, 16, 6, 0.4, 0, Math.PI * 2);
+        c.stroke();
+        c.restore();
+
+        c.save();
+        c.rotate(-time * 0.003);
+        c.strokeStyle = "#a855f7";
+        c.lineWidth = 1.5;
+        c.beginPath();
+        c.ellipse(0, 0, 12, 5, -0.6, 0, Math.PI * 2);
+        c.stroke();
+        c.restore();
+
+        c.fillStyle = "#06b6d4";
+        c.beginPath();
+        c.arc(0, 0, 6, 0, Math.PI * 2);
+        c.fill();
+
+    } else {
+        // --- 5. Quantum Scout Drone (Default) ---
+        c.fillStyle = "rgba(0, 0, 0, 0.4)";
+        c.beginPath();
+        c.ellipse(0, 18 - hover * 0.5, 16, 5, 0, 0, Math.PI * 2);
+        c.fill();
+
+        // Twin Plasma Thruster Trails (flickering cyan)
+        const flame = 6 + Math.sin(time * 0.03) * 3;
+        c.fillStyle = "#06b6d4";
+        c.beginPath();
+        c.moveTo(-9, 6); c.lineTo(-6, 6 + flame); c.lineTo(-3, 6);
+        c.moveTo(3, 6);  c.lineTo(6, 6 + flame);  c.lineTo(9, 6);
+        c.fill();
+
+        // Delta hovercraft chassis
+        c.fillStyle = "#0f172a";
+        c.strokeStyle = "#0284c7";
+        c.lineWidth = 1.8;
+        c.beginPath();
+        c.moveTo(0, -14);
+        c.lineTo(16, 4);
+        c.lineTo(9, 8);
+        c.lineTo(0, 4);
+        c.lineTo(-9, 8);
+        c.lineTo(-16, 4);
+        c.closePath();
+        c.fill();
+        c.stroke();
+
+        // Wing stabilizer lights
+        c.fillStyle = "#38bdf8";
+        c.beginPath();
+        c.arc(-13, 2, 2, 0, Math.PI * 2);
+        c.arc(13, 2, 2, 0, Math.PI * 2);
+        c.fill();
+
+        // Cockpit sensor orb
+        c.fillStyle = "#1e293b";
+        c.strokeStyle = "#38bdf8";
+        c.lineWidth = 1.5;
+        c.beginPath();
+        c.arc(0, -3, 6.5, 0, Math.PI * 2);
+        c.fill();
+        c.stroke();
+
+        c.fillStyle = "#38bdf8";
+        c.beginPath();
+        c.arc(0, -3, 3, 0, Math.PI * 2);
+        c.fill();
+    }
 
     c.restore();
 }
@@ -634,8 +797,10 @@ function render(timestamp) {
             ctx.setLineDash([]);
         }
 
-        // Render distinct sprite
-        if (obj.type === "tree") {
+        // Render distinct sprite or user-chosen icon
+        if (obj.icon) {
+            drawCustomIconObject(ctx, p.x, p.y, spriteScale, obj.icon, time);
+        } else if (obj.type === "tree") {
             drawCyberTree(ctx, p.x, p.y, spriteScale);
         } else if (obj.type === "sensor") {
             drawBeacon(ctx, p.x, p.y, spriteScale, time);
@@ -647,7 +812,7 @@ function render(timestamp) {
             drawContraption(ctx, p.x, p.y, spriteScale, time);
         } else {
             // Default Landmark
-            ctx.font = `${20 * zoom}px sans-serif`;
+            ctx.font = `${22 * zoom}px sans-serif`;
             ctx.textAlign = "center";
             ctx.fillText("📍", p.x, p.y);
         }
@@ -656,28 +821,26 @@ function render(timestamp) {
         drawPillBadge(ctx, p.x, p.y + 24 * spriteScale, obj.name, "#cbd5e1");
     });
 
-    // Draw Robot Squirrel
+    // Draw Robot Squirrel (No glow, no text floating on him!)
     const sq = state.world.squirrel;
     const sqScreen = worldToScreen(sq.x, sq.y);
     const sqScale = Math.max(0.7, Math.min(2.0, zoom));
     drawRobotSquirrel(ctx, sqScreen.x, sqScreen.y, sqScale, sq.heading, time);
 
-    // Squirrel Name Badge
-    drawPillBadge(ctx, sqScreen.x, sqScreen.y - 28 * sqScale, "LIVELY ⚡", "#f59e0b", "rgba(24, 27, 36, 0.95)", "rgba(245, 158, 11, 0.4)");
-
-    // Draw Other Users (filter out own ID so NO DUPLICATION!)
+    // Draw Other Users (filter out own ID and name so NEVER duplicate!)
     state.world.users.forEach(u => {
-        if (state.myUserId && u.id === state.myUserId) return; // Do not draw self twice!
+        if (state.myUserId && u.id === state.myUserId) return;
+        if (u.name === state.user.name) return;
         const up = worldToScreen(u.x, u.y);
-        drawPlayer(ctx, up.x, up.y, Math.max(0.6, Math.min(1.5, zoom)), u.name);
-        drawPillBadge(ctx, up.x, up.y - 24 * zoom, u.name, "#94a3b8");
+        drawPlayer(ctx, up.x, up.y, Math.max(0.6, Math.min(1.5, zoom)), u.name, u.avatar_type || "scout", time);
+        drawPillBadge(ctx, up.x, up.y - 28 * zoom, u.name, "#94a3b8");
     });
 
-    // Draw Your Avatar
+    // Draw Your Avatar (Interesting Sci-Fi Explorer)
     const userScreen = worldToScreen(state.user.x, state.user.y);
     const playerScale = Math.max(0.7, Math.min(1.8, zoom));
-    drawPlayer(ctx, userScreen.x, userScreen.y, playerScale, state.user.name);
-    drawPillBadge(ctx, userScreen.x, userScreen.y - 26 * playerScale, `${state.user.name} (You)`, "#38bdf8", "rgba(15, 23, 42, 0.9)", "rgba(6, 182, 212, 0.4)");
+    drawPlayer(ctx, userScreen.x, userScreen.y, playerScale, state.user.name, state.avatarType, time);
+    drawPillBadge(ctx, userScreen.x, userScreen.y - 28 * playerScale, `${state.user.name} (You)`, "#38bdf8", "rgba(15, 23, 42, 0.9)", "rgba(6, 182, 212, 0.4)");
 
     // Smooth movement towards target
     updateUserMovement();
@@ -768,7 +931,8 @@ function sendUserPosition() {
             type: "move",
             x: Math.round(state.user.x),
             y: Math.round(state.user.y),
-            name: state.user.name
+            name: state.user.name,
+            avatar_type: state.avatarType || "scout"
         }));
         lastSend = now;
     }
@@ -899,14 +1063,16 @@ function handleWebSocketMessage(data) {
         updateWorldState(data.world);
         loadProjects();
         loadMemories();
+        loadBlogPosts();
         loadSystemInfo();
         showNotification("🌱 World & memories have been reset!");
     } else if (data.type === "squirrel_wake") {
         updateWorldState(data.world);
         loadProjects();
         loadMemories();
+        loadBlogPosts();
         loadSystemInfo();
-        showNotification("🐿️ Lively finished a wake cycle!");
+        showNotification("🐿️ Squirrel finished a wake cycle!");
     }
 }
 
@@ -944,19 +1110,24 @@ async function fetchGmailStatus() {
     try {
         const res = await fetch("/api/settings/gmail");
         const data = await res.json();
+        const actionsRow = document.getElementById("gmail-actions-row");
+        const statusText = document.getElementById("gmail-status-text");
+
         if (data.authenticated) {
             statGmail.innerText = "Ready ✅";
             statGmail.className = "val badge ready";
-            document.getElementById("gmail-status-text").innerText = `Gmail is connected (${data.method})! Lively can email you.`;
+            if (statusText) statusText.innerHTML = `Gmail is connected (${data.method}) to <b>${escapeHtml(data.user_email || "your account")}</b>. Squirrel can email you!`;
+            if (actionsRow) actionsRow.classList.remove("hidden");
         } else {
             statGmail.innerText = "Setup Needed ⚠️";
             statGmail.className = "val badge unlinked";
-            document.getElementById("gmail-status-text").innerText = "Not connected yet. Choose Method 1 (App Password) or Method 2 (OAuth) below.";
+            if (statusText) statusText.innerText = "Not connected yet. Follow the step-by-step guide below to connect with a Google App Password.";
+            if (actionsRow) actionsRow.classList.add("hidden");
         }
-        if (data.user_email) {
+        if (data.user_email && document.getElementById("gmail-user-email")) {
             document.getElementById("gmail-user-email").value = data.user_email;
         }
-        if (data.client_id) {
+        if (data.client_id && document.getElementById("gmail-client-id")) {
             document.getElementById("gmail-client-id").value = data.client_id;
         }
     } catch (e) {
@@ -964,106 +1135,143 @@ async function fetchGmailStatus() {
     }
 }
 
-// Method 1: Save App Password
-document.getElementById("form-gmail-app-pw").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const user_email = document.getElementById("gmail-user-email").value.trim();
-    const app_password = document.getElementById("gmail-app-pw").value.trim();
+// Connect with App Password (Direct SMTP Verification)
+const formGmailConnect = document.getElementById("form-gmail-connect");
+if (formGmailConnect) {
+    formGmailConnect.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const user_email = document.getElementById("gmail-user-email").value.trim();
+        const app_password = document.getElementById("gmail-app-pw").value.trim();
+        const msgBox = document.getElementById("gmail-connect-msg");
+        const btn = document.getElementById("btn-connect-gmail");
 
-    if (!app_password) {
-        alert("Please paste your 16-character App Password.");
-        return;
-    }
+        if (!app_password) {
+            alert("Please paste your 16-character App Password.");
+            return;
+        }
 
-    try {
-        const res = await fetch("/api/settings/gmail", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                method: "app_password",
-                user_email,
-                app_password
-            })
-        });
-        const out = await res.json();
-        alert("App Password saved successfully!");
-        fetchGmailStatus();
-    } catch (err) {
-        alert("Error saving App Password: " + err);
-    }
-});
+        btn.disabled = true;
+        btn.innerText = "Verifying Credentials...";
+        msgBox.innerHTML = "<span style='color:#06b6d4;'>Testing connection to smtp.gmail.com:465...</span>";
+
+        try {
+            const res = await fetch("/api/settings/gmail/connect", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ user_email, app_password })
+            });
+            const out = await res.json();
+            if (out.success) {
+                msgBox.innerHTML = `<b style="color:#10b981;">✅ Verified! Connected to Gmail as ${escapeHtml(user_email)}.</b>`;
+                document.getElementById("gmail-app-pw").value = "";
+                fetchGmailStatus();
+                showNotification("✉️ Gmail successfully connected!");
+            } else {
+                msgBox.innerHTML = `<b style="color:#ef4444;">❌ Verification failed:</b> ${escapeHtml(out.error || out.message)}`;
+            }
+        } catch (err) {
+            msgBox.innerHTML = `<b style="color:#ef4444;">❌ Error connecting:</b> ${err}`;
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "🔌 Connect & Verify Gmail Account";
+        }
+    });
+}
+
+// Disconnect Gmail
+const btnDisconnectGmail = document.getElementById("btn-disconnect-gmail");
+if (btnDisconnectGmail) {
+    btnDisconnectGmail.addEventListener("click", async () => {
+        if (!confirm("Are you sure you want to disconnect Gmail?")) return;
+        try {
+            await fetch("/api/settings/gmail/disconnect", { method: "POST" });
+            fetchGmailStatus();
+            showNotification("Gmail disconnected.");
+        } catch (err) {
+            alert("Error disconnecting Gmail: " + err);
+        }
+    });
+}
 
 // Method 2: Save OAuth Credentials
-document.getElementById("form-gmail-oauth").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const user_email = document.getElementById("gmail-user-email").value.trim();
-    const client_id = document.getElementById("gmail-client-id").value.trim();
-    const client_secret = document.getElementById("gmail-client-secret").value.trim();
+const formGmailOAuth = document.getElementById("form-gmail-oauth");
+if (formGmailOAuth) {
+    formGmailOAuth.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const user_email = document.getElementById("gmail-user-email").value.trim();
+        const client_id = document.getElementById("gmail-client-id").value.trim();
+        const client_secret = document.getElementById("gmail-client-secret").value.trim();
 
-    try {
-        await fetch("/api/settings/gmail", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                method: "oauth",
-                user_email,
-                client_id,
-                client_secret
-            })
-        });
-        alert("OAuth credentials saved. Now click 'Open Google Sign-In Link' below!");
-        fetchGmailStatus();
-    } catch (err) {
-        alert("Error saving OAuth credentials: " + err);
-    }
-});
+        try {
+            await fetch("/api/settings/gmail", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    method: "oauth",
+                    user_email,
+                    client_id,
+                    client_secret
+                })
+            });
+            alert("OAuth credentials saved. Now click 'Open Google Sign-In Link' below!");
+            fetchGmailStatus();
+        } catch (err) {
+            alert("Error saving OAuth credentials: " + err);
+        }
+    });
+}
 
 // Method 2: Open Auth URL
-document.getElementById("btn-auth-gmail").addEventListener("click", async () => {
-    try {
-        const res = await fetch("/auth/gmail");
-        const data = await res.json();
-        if (data.success && data.auth_url) {
-            window.open(data.auth_url, "_blank");
-        } else {
-            alert(data.error || "Please enter your Client ID & Secret in Method 2 first.");
+const btnAuthGmail = document.getElementById("btn-auth-gmail");
+if (btnAuthGmail) {
+    btnAuthGmail.addEventListener("click", async () => {
+        try {
+            const res = await fetch("/auth/gmail");
+            const data = await res.json();
+            if (data.success && data.auth_url) {
+                window.open(data.auth_url, "_blank");
+            } else {
+                alert(data.error || "Please enter your Client ID & Secret in Method 2 first.");
+            }
+        } catch (e) {
+            alert("Error initiating Gmail auth: " + e);
         }
-    } catch (e) {
-        alert("Error initiating Gmail auth: " + e);
-    }
-});
+    });
+}
 
 // Send Test Email
-document.getElementById("btn-test-email").addEventListener("click", async () => {
-    const btn = document.getElementById("btn-test-email");
-    const resultBox = document.getElementById("email-test-result");
-    btn.disabled = true;
-    btn.innerText = "Sending test email...";
-    resultBox.innerText = "";
+const btnTestEmail = document.getElementById("btn-test-email");
+if (btnTestEmail) {
+    btnTestEmail.addEventListener("click", async () => {
+        const resultBox = document.getElementById("email-test-result");
+        btnTestEmail.disabled = true;
+        btnTestEmail.innerText = "Sending test email...";
+        resultBox.innerText = "";
 
-    try {
-        const res = await fetch("/api/test/email", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                subject: "🐿️ Hello from Lively the Robot Squirrel!",
-                body: "Greetings David!\n\nThis is a transmission from Lively living on your Raspberry Pi! My email sensors are online and functioning perfectly.\n\nCatch you later on the map! 🌰⚡"
-            })
-        });
-        const out = await res.json();
-        if (out.success) {
-            resultBox.innerHTML = "<b style='color:#10b981;'>✅ Email sent successfully! Check your inbox.</b>";
-            fetchGmailStatus();
-        } else {
-            resultBox.innerHTML = `<b style='color:#ef4444;'>❌ Send failed:</b> ${escapeHtml(out.error)}`;
+        try {
+            const res = await fetch("/api/test/email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    subject: "🐿️ Hello from Squirrel the Robot Squirrel!",
+                    body: "Greetings David!\n\nThis is a transmission from Squirrel living on your Raspberry Pi! My email sensors are online and functioning perfectly.\n\nCatch you later on the map! 🌰⚡"
+                })
+            });
+            const out = await res.json();
+            if (out.success) {
+                resultBox.innerHTML = "<b style='color:#10b981;'>✅ Email sent successfully! Check your inbox.</b>";
+                fetchGmailStatus();
+            } else {
+                resultBox.innerHTML = `<b style='color:#ef4444;'>❌ Send failed:</b> ${escapeHtml(out.error)}`;
+            }
+        } catch (e) {
+            resultBox.innerHTML = `<b style='color:#ef4444;'>❌ Error:</b> ${e}`;
+        } finally {
+            btnTestEmail.disabled = false;
+            btnTestEmail.innerText = "📨 Send Test Email";
         }
-    } catch (e) {
-        resultBox.innerHTML = `<b style='color:#ef4444;'>❌ Error:</b> ${e}`;
-    } finally {
-        btn.disabled = false;
-        btn.innerText = "📨 Send Test Email Now";
-    }
-});
+    });
+}
 
 // Projects & Code Workshop
 async function loadProjects() {
@@ -1163,6 +1371,39 @@ async function loadMemories() {
     }
 }
 
+// Squirrel Blog Posts
+async function loadBlogPosts() {
+    const list = document.getElementById("blog-list");
+    if (!list) return;
+    try {
+        const res = await fetch("/api/blog");
+        const posts = await res.json();
+        list.innerHTML = "";
+
+        if (posts.length === 0) {
+            list.innerHTML = `<p class="hint">No blog posts published yet.</p>`;
+            return;
+        }
+
+        posts.forEach(p => {
+            const item = document.createElement("div");
+            item.className = "list-item";
+            item.innerHTML = `
+                <div class="item-info">
+                    <div class="item-title">✍️ ${escapeHtml(p.title || p.filename)}</div>
+                    <div class="item-subtitle">${escapeHtml(p.preview || "")}</div>
+                </div>
+            `;
+            item.onclick = () => {
+                showModal(`<h2>✍️ ${escapeHtml(p.title || p.filename)}</h2><div class="markdown-body" style="white-space:pre-wrap; line-height:1.6;">${escapeHtml(p.content)}</div>`);
+            };
+            list.appendChild(item);
+        });
+    } catch (e) {
+        console.error("Load blog posts error:", e);
+    }
+}
+
 function renderObjectList() {
     const list = document.getElementById("object-list");
     const count = document.getElementById("obj-count");
@@ -1199,6 +1440,32 @@ function renderObjectList() {
     });
 }
 
+// Object Icon Picker & Custom Emoji
+const iconBtns = document.querySelectorAll(".icon-btn");
+const objIconInput = document.getElementById("obj-icon");
+const objCustomIconInput = document.getElementById("obj-custom-icon");
+
+if (iconBtns.length > 0 && objIconInput) {
+    iconBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+            iconBtns.forEach(b => b.classList.remove("selected"));
+            btn.classList.add("selected");
+            objIconInput.value = btn.dataset.icon;
+            if (objCustomIconInput) objCustomIconInput.value = "";
+        });
+    });
+}
+
+if (objCustomIconInput && objIconInput) {
+    objCustomIconInput.addEventListener("input", (e) => {
+        const val = e.target.value.trim();
+        if (val) {
+            iconBtns.forEach(b => b.classList.remove("selected"));
+            objIconInput.value = val;
+        }
+    });
+}
+
 // Add Object Form
 document.getElementById("form-add-object").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1206,17 +1473,19 @@ document.getElementById("form-add-object").addEventListener("submit", async (e) 
     const x = parseFloat(document.getElementById("obj-x").value);
     const y = parseFloat(document.getElementById("obj-y").value);
     const type = document.getElementById("obj-type").value;
+    const icon = objIconInput ? objIconInput.value.trim() : "";
     const desc = document.getElementById("obj-desc").value.trim();
 
     try {
         const res = await fetch("/api/objects", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, x, y, type, description: desc })
+            body: JSON.stringify({ name, x, y, type, icon, description: desc })
         });
         if (res.ok) {
             document.getElementById("obj-name").value = "";
             document.getElementById("obj-desc").value = "";
+            showNotification(`📍 Placed "${name}" into the world!`);
         }
     } catch (err) {
         alert("Error adding object: " + err);
@@ -1297,7 +1566,7 @@ function startThinkingStream() {
                 });
             } else if (stage === "complete") {
                 appendConsoleLine(`\n✅ ${data.message}`, "action");
-                showNotification("🐿️ Lively finished thinking and acted!");
+                showNotification("🐿️ Squirrel finished thinking and acted!");
                 if (badge) {
                     badge.innerText = "Completed";
                     badge.className = "badge ready";
@@ -1305,6 +1574,7 @@ function startThinkingStream() {
                 fetchWorld();
                 loadProjects();
                 loadMemories();
+                loadBlogPosts();
             }
         } catch (e) {
             console.error("Think stream error:", e);
@@ -1345,6 +1615,27 @@ document.getElementById("user-display-name").addEventListener("change", (e) => {
     localStorage.setItem("lively_username", state.user.name);
     sendUserPosition();
 });
+
+// Avatar Appearance Selector
+const avatarOptions = document.querySelectorAll(".avatar-option");
+if (avatarOptions.length > 0) {
+    avatarOptions.forEach(opt => {
+        if (opt.dataset.avatar === state.avatarType) {
+            opt.classList.add("selected");
+        } else {
+            opt.classList.remove("selected");
+        }
+        opt.addEventListener("click", () => {
+            avatarOptions.forEach(o => o.classList.remove("selected"));
+            opt.classList.add("selected");
+            state.avatarType = opt.dataset.avatar;
+            localStorage.setItem("lively_avatar_type", state.avatarType);
+            sendUserPosition();
+            const label = opt.querySelector("b") ? opt.querySelector("b").innerText : state.avatarType;
+            showNotification(`🛸 Avatar updated to ${label}!`);
+        });
+    });
+}
 
 // Sidebar Tabs
 document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -1570,7 +1861,7 @@ if (btnSettingsWake) {
 const btnFactoryReset = document.getElementById("btn-factory-reset");
 if (btnFactoryReset) {
     btnFactoryReset.addEventListener("click", async () => {
-        const confirmMsg = "Are you sure you want to perform a Factory Reset?\n\nThis will:\n- Wipe all custom objects\n- Spawn TreeberryPine at coordinates (45, 45)\n- Return Lively to origin (0, 0)\n- Wipe all memory journals & caches\n- Restore starter projects";
+        const confirmMsg = "Are you sure you want to perform a Factory Reset?\n\nThis will:\n- Wipe all custom objects\n- Spawn TreeberryPine at coordinates (45, 45)\n- Return Squirrel to origin (0, 0)\n- Wipe all memory journals & caches\n- Restore starter projects";
         if (!confirm(confirmMsg)) return;
 
         const msgBox = document.getElementById("reset-msg");
@@ -1585,6 +1876,7 @@ if (btnFactoryReset) {
                 fetchWorld();
                 loadProjects();
                 loadMemories();
+                loadBlogPosts();
                 loadSystemInfo();
                 showNotification("🌱 Factory reset complete!");
             }
@@ -1602,6 +1894,7 @@ fetchWorld();
 fetchGmailStatus();
 loadProjects();
 loadMemories();
+loadBlogPosts();
 loadSchedule();
 loadSystemInfo();
 connectWebSocket();

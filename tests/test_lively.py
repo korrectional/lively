@@ -197,3 +197,50 @@ def test_email_service_url(temp_dir):
     assert "accounts.google.com" in url
     assert "test_id_123" in url
     assert "https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fgmail.send" in url
+
+def test_blog_and_custom_icon_parsing(temp_dir):
+    mem_dir = temp_dir / "memories"
+    j_dir = mem_dir / "journal"
+    b_dir = temp_dir / "blog"
+    mm = MemoryManager(memories_dir=mem_dir, journal_dir=j_dir, blog_dir=b_dir)
+
+    # Save blog post
+    post_file = mm.save_blog_post(
+        title="Why Robot Squirrels Love Quantum Antennas",
+        content="Antennas provide resonance and connection to the global web.",
+        slug="quantum_antennas"
+    )
+    assert post_file.exists()
+    assert "Quantum Antennas" in post_file.read_text(encoding="utf-8")
+
+    posts = mm.get_blog_posts()
+    assert len(posts) == 1
+    assert posts[0]["title"] == "Why Robot Squirrels Love Quantum Antennas"
+
+    # Test brain parsing WRITE_BLOG and BUILD_OBJECT with custom icon
+    brain = SquirrelBrain()
+    sample = """
+THINK: Writing a thought piece for other robotic creatures and humans.
+BUILD_OBJECT: Crystal Monolith | landmark | icon:🔮 | A shining purple beacon
+WRITE_BLOG: Reflections on Carbon and Silicon
+Today I met David at coordinates (20, 20). It was pleasant to share coordinates.
+"""
+    actions = brain.parse_actions(sample)
+    act_types = [a.action_type for a in actions]
+    assert "BUILD_OBJECT" in act_types
+    assert "WRITE_BLOG" in act_types
+
+    build_act = next(a for a in actions if a.action_type == "BUILD_OBJECT")
+    assert build_act.parameters["name"] == "Crystal Monolith"
+    assert build_act.parameters["icon"] == "🔮"
+
+    blog_act = next(a for a in actions if a.action_type == "WRITE_BLOG")
+    assert blog_act.parameters["title"] == "Reflections on Carbon and Silicon"
+    assert "met David" in blog_act.parameters["content"]
+
+def test_verify_app_password_invalid():
+    # Empty credentials should fail gracefully without crashing
+    res = EmailService.verify_app_password("", "")
+    assert res["success"] is False
+    assert "required" in res["error"].lower()
+

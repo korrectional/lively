@@ -66,6 +66,7 @@ class WorldManager:
                 x=45.0,
                 y=45.0,
                 type="tree",
+                icon="🌲",
                 description="The sacred ancestral TreeberryPine tree — majestic, lush, and full of digital pinecones and perches.",
                 created_by="nature"
             )
@@ -76,6 +77,7 @@ class WorldManager:
         """Reset world to initial state: removes all physical objects and spawns TreeberryPine."""
         with self._lock:
             self.squirrel = SquirrelState(
+                name="Squirrel",
                 x=0.0,
                 y=0.0,
                 heading=0.0,
@@ -92,6 +94,7 @@ class WorldManager:
                 x=45.0,
                 y=45.0,
                 type="tree",
+                icon="🌲",
                 description="The sacred ancestral TreeberryPine tree — majestic, lush, and full of digital pinecones and perches.",
                 created_by="nature"
             )
@@ -168,7 +171,7 @@ class WorldManager:
             }
 
     def add_object(self, name: str, x: float, y: float, obj_type: str = "landmark",
-                   description: str = "", created_by: str = "user", metadata: Optional[dict] = None) -> WorldObject:
+                   icon: str = "", description: str = "", created_by: str = "user", metadata: Optional[dict] = None) -> WorldObject:
         """Add a landmark or object to the map with guaranteed physical separation."""
         with self._lock:
             obj_id = f"obj_{uuid.uuid4().hex[:8]}"
@@ -180,6 +183,7 @@ class WorldManager:
                 x=actual_x,
                 y=actual_y,
                 type=obj_type,
+                icon=icon or "",
                 description=description,
                 created_by=created_by,
                 metadata=metadata or {}
@@ -251,7 +255,7 @@ class WorldManager:
             self._save()
             return self.squirrel
 
-    def update_user_position(self, user_id: str, name: str, x: float, y: float) -> UserAvatar:
+    def update_user_position(self, user_id: str, name: str, x: float, y: float, avatar_type: str = "scout") -> UserAvatar:
         """Update or register an avatar for a live connected user."""
         with self._lock:
             clamped_x = max(WORLD_MIN_X, min(WORLD_MAX_X, float(x)))
@@ -261,6 +265,7 @@ class WorldManager:
                 name=name or f"User-{user_id[:4]}",
                 x=clamped_x,
                 y=clamped_y,
+                avatar_type=avatar_type or "scout",
                 last_active=time.time()
             )
             self.active_users[user_id] = user

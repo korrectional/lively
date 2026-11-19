@@ -13,7 +13,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional, Generator
 
-from lively.config import SQUIRREL_NAME, AGYC_BIN, USER_EMAIL, AGYC_EFFORT
+from lively.config import SQUIRREL_NAME, AGYC_BIN, USER_EMAIL, AGYC_EFFORT, AGYC_TIMEOUT
 from lively.world import world
 from lively.memory import memory
 from lively.projects import projects
@@ -23,9 +23,10 @@ from lively.models import SquirrelAction, WakeCycleResult
 class SquirrelBrain:
     """Orchestrates cognitive cycles, agyc interactions, and world actions."""
 
-    def __init__(self, agyc_bin: str = AGYC_BIN, effort: str = AGYC_EFFORT):
+    def __init__(self, agyc_bin: str = AGYC_BIN, effort: str = AGYC_EFFORT, timeout: int = AGYC_TIMEOUT):
         self.agyc_bin = agyc_bin
         self.effort = effort
+        self.timeout = timeout
 
     def find_agyc_executable(self) -> Optional[str]:
         """Locate agy or agyc binary on PATH or common locations."""
@@ -648,7 +649,10 @@ JOURNAL:
 
         summary_blurb = f"Cycle #{cycle_num}: Reached ({sq.x}, {sq.y}). Activity: {sq.current_activity}."
         if error:
-            summary_blurb += f" Engine notice: {error}"
+            clean_err = error.replace("\n", " ").strip()
+            if len(clean_err) > 120:
+                clean_err = clean_err[:120] + "..."
+            summary_blurb += f" Engine notice: {clean_err}"
         if coded_files:
             summary_blurb += f" Projects: {', '.join(coded_files)}."
         if pushed_projects:
@@ -670,9 +674,10 @@ JOURNAL:
         # Save complete thought session to persistent mind log (~/.lively/thoughts/)
         nearby = world.get_nearby_objects(sq.x, sq.y, max_dist=1500)
         state = world.get_state()
+        session_monologue = raw_monologue if raw_monologue else (f"[Cognitive deliberation failed: {error}]" if error else "[No inner monologue produced]")
         thought_file = memory.save_thought_session(
             cycle_num=cycle_num,
-            raw_monologue=raw_monologue or sq.last_thought,
+            raw_monologue=session_monologue,
             sensory_data={
                 "squirrel_x": sq.x,
                 "squirrel_y": sq.y,
@@ -694,6 +699,7 @@ JOURNAL:
                 "web_searches": web_searches
             }
         )
+        world.save()
 
         return WakeCycleResult(
             timestamp=datetime.now(timezone.utc).isoformat(),
@@ -785,7 +791,7 @@ JOURNAL:
                 cmd.extend(["-p", prompt])
                 if "agy" in Path(exe).name.lower():
                     cmd.extend(["--effort", self.effort])
-                res = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+                res = subprocess.run(cmd, capture_output=True, text=True, timeout=self.timeout)
                 if res.returncode == 0 and res.stdout.strip():
                     output_text = res.stdout
                 else:
@@ -796,12 +802,22 @@ JOURNAL:
                         "message": engine_error,
                         "error": err_details
                     }
-            except Exception as e:
-                engine_error = f"Engine execution exception: {e}"
+            except subprocess.TimeoutExpired:
+                engine_error = f"Neural engine timed out after {self.timeout} seconds."
                 yield {
                     "stage": "engine_error",
                     "message": engine_error,
-                    "error": str(e)
+                    "error": engine_error
+                }
+            except Exception as e:
+                err_msg = str(e)
+                if len(err_msg) > 200:
+                    err_msg = err_msg[:200] + "... [truncated]"
+                engine_error = f"Engine execution exception: {err_msg}"
+                yield {
+                    "stage": "engine_error",
+                    "message": engine_error,
+                    "error": err_msg
                 }
 
         yield {

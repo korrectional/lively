@@ -110,6 +110,11 @@ class WorldManager:
         if self.file_path.exists():
             self._last_loaded_mtime = self.file_path.stat().st_mtime
 
+    def save(self):
+        """Public method to persist world state."""
+        with self._lock:
+            self._save()
+
     def get_closest_object(self, x: float, y: float, exclude_id: Optional[str] = None) -> Tuple[Optional[WorldObject], float]:
         """Return the closest object and distance to (x, y), or (None, inf)."""
         with self._lock:

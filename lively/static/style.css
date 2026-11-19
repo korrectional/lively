@@ -433,6 +433,62 @@ input:focus, select:focus, textarea:focus {
     margin-top: 14px;
 }
 
+/* Thought Console Box */
+.thought-console-box {
+    background: #07090e;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: #e2e8f0;
+    min-height: 280px;
+    max-height: 480px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.console-line {
+    line-height: 1.45;
+    word-break: break-word;
+}
+
+.console-line.system {
+    color: var(--text-secondary);
+}
+
+.console-line.scan {
+    color: var(--cyan);
+}
+
+.console-line.memory {
+    color: #a855f7;
+}
+
+.console-line.prompt {
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+}
+
+.console-line.thought {
+    color: #fbbf24;
+    font-weight: 500;
+}
+
+.console-line.action {
+    color: var(--green);
+    font-weight: 600;
+}
+
+.console-line.error {
+    color: var(--red);
+}
+
 .code-header {
     display: flex;
     justify-content: space-between;

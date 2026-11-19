@@ -1212,21 +1212,121 @@ document.getElementById("form-add-object").addEventListener("submit", async (e) 
     }
 });
 
-// Trigger Wake Cycle Button
-btnWake.addEventListener("click", async () => {
-    btnWake.disabled = true;
-    btnWake.innerText = "🐿️ Thinking...";
-    try {
-        const res = await fetch("/api/squirrel/wake", { method: "POST" });
-        const result = await res.json();
-        showNotification("🐿️ Lively has awakened and taken action!");
-    } catch (e) {
-        alert("Error triggering wake: " + e);
-    } finally {
-        btnWake.disabled = false;
-        btnWake.innerText = "⚡ Wake Squirrel";
+// ==========================================
+// Cognitive Streaming (Watch It Think)
+// ==========================================
+function switchTab(tabId) {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+    const btn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+    if (btn) btn.classList.add("active");
+    const pane = document.getElementById(tabId);
+    if (pane) pane.classList.add("active");
+    sidebar.classList.remove("collapsed");
+}
+
+function appendConsoleLine(text, type = "system") {
+    const box = document.getElementById("thought-console");
+    if (!box) return;
+    const line = document.createElement("div");
+    line.className = `console-line ${type}`;
+    line.innerText = text;
+    box.appendChild(line);
+    box.scrollTop = box.scrollHeight;
+}
+
+function startThinkingStream() {
+    switchTab("tab-brain");
+    const badge = document.getElementById("think-status-badge");
+    const btnStream = document.getElementById("btn-stream-think");
+    const btnTopWake = document.getElementById("btn-wake");
+
+    if (badge) {
+        badge.innerText = "Thinking...";
+        badge.className = "badge unlinked";
     }
+    if (btnStream) btnStream.disabled = true;
+    if (btnTopWake) btnTopWake.disabled = true;
+
+    const box = document.getElementById("thought-console");
+    if (box) box.innerHTML = "";
+    appendConsoleLine(`⚡ Neural core activated at ${new Date().toLocaleTimeString()}`, "system");
+
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const thinkWs = new WebSocket(`${protocol}//${window.location.host}/ws/think`);
+
+    thinkWs.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            const stage = data.stage;
+
+            if (stage === "sensory_scan") {
+                appendConsoleLine(`[SENSORY] ${data.message}`, "scan");
+            } else if (stage === "memory_recall") {
+                appendConsoleLine(`[MEMORY] ${data.message}`, "memory");
+            } else if (stage === "prompt_ready") {
+                appendConsoleLine(`[SYNTHESIS] Context compiled. Input size: ${data.prompt.length} chars`, "prompt");
+            } else if (stage === "llm_query") {
+                appendConsoleLine(`[NEURAL ENGINE] ${data.message}`, "system");
+            } else if (stage === "engine_notice") {
+                appendConsoleLine(`[ENGINE NOTICE] ${data.message}`, "prompt");
+            } else if (stage === "raw_cognition") {
+                appendConsoleLine(`\n--- SQUIRREL MONOLOGUE ---`, "system");
+                const lines = data.raw_text.split("\n");
+                lines.forEach(l => {
+                    if (l.startsWith("THINK:")) appendConsoleLine(l, "thought");
+                    else if (l.startsWith("MOVE_TO:") || l.startsWith("BUILD_OBJECT:") || l.startsWith("WRITE_CODE:")) appendConsoleLine(l, "action");
+                    else if (l.trim()) appendConsoleLine(l, "system");
+                });
+                appendConsoleLine(`--- END OF MONOLOGUE ---\n`, "system");
+            } else if (stage === "actions_parsed") {
+                appendConsoleLine(`[DECISIONS] Materializing ${data.actions.length} action(s):`, "action");
+                data.actions.forEach(a => {
+                    appendConsoleLine(`  ⚡ ${a.action_type}: ${JSON.stringify(a.parameters)}`, "action");
+                });
+            } else if (stage === "complete") {
+                appendConsoleLine(`\n✅ ${data.message}`, "action");
+                showNotification("🐿️ Lively finished thinking and acted!");
+                if (badge) {
+                    badge.innerText = "Completed";
+                    badge.className = "badge ready";
+                }
+                fetchWorld();
+                loadProjects();
+                loadMemories();
+            }
+        } catch (e) {
+            console.error("Think stream error:", e);
+        }
+    };
+
+    thinkWs.onclose = () => {
+        if (btnStream) btnStream.disabled = false;
+        if (btnTopWake) btnTopWake.disabled = false;
+        if (badge && badge.innerText === "Thinking...") {
+            badge.innerText = "Done";
+            badge.className = "badge ready";
+        }
+    };
+
+    thinkWs.onerror = () => {
+        appendConsoleLine("❌ WebSocket stream error. Fallback to HTTP...", "error");
+        if (btnStream) btnStream.disabled = false;
+        if (btnTopWake) btnTopWake.disabled = false;
+    };
+}
+
+// Trigger Wake Cycle Button (Now connects to thinking stream!)
+btnWake.addEventListener("click", () => {
+    startThinkingStream();
 });
+
+const btnStreamThink = document.getElementById("btn-stream-think");
+if (btnStreamThink) {
+    btnStreamThink.addEventListener("click", () => {
+        startThinkingStream();
+    });
+}
 
 // User name edit
 document.getElementById("user-display-name").addEventListener("change", (e) => {

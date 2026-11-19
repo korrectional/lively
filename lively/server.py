@@ -111,7 +111,6 @@ async def run_project(filename: str, req: CodeRunRequest = CodeRunRequest()):
 @app.post("/api/squirrel/wake")
 async def trigger_wake_cycle():
     """Manually trigger a squirrel wake and cognitive cycle."""
-    # Run cycle in background thread or async
     loop = asyncio.get_event_loop()
     cycle_res = await loop.run_in_executor(None, brain.run_cycle)
     await broadcast({
@@ -120,6 +119,55 @@ async def trigger_wake_cycle():
         "world": world.get_state()
     })
     return cycle_res.model_dump()
+
+@app.post("/api/squirrel/think")
+async def trigger_think_trace():
+    """Execute cognitive cycle and return all step-by-step thinking traces."""
+    loop = asyncio.get_event_loop()
+    def _run():
+        steps = []
+        gen = brain.think_trace()
+        try:
+            while True:
+                steps.append(next(gen))
+        except StopIteration as e:
+            res = e.value
+            return {"steps": steps, "result": res.model_dump(), "world": world.get_state()}
+    data = await loop.run_in_executor(None, _run)
+    await broadcast({
+        "type": "squirrel_wake",
+        "result": data["result"],
+        "world": data["world"]
+    })
+    return data
+
+@app.websocket("/ws/think")
+async def websocket_think_stream(ws: WebSocket):
+    """Real-time streaming WebSocket for watching Lively think live."""
+    await ws.accept()
+    try:
+        loop = asyncio.get_event_loop()
+        gen = brain.think_trace()
+        for step in gen:
+            await ws.send_text(json.dumps(step))
+            await asyncio.sleep(0.08) # Natural reading pacing
+        # Broadcast final result to all world viewers
+        await broadcast({
+            "type": "squirrel_wake",
+            "world": world.get_state()
+        })
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        try:
+            await ws.send_text(json.dumps({"stage": "error", "message": str(e)}))
+        except Exception:
+            pass
+    finally:
+        try:
+            await ws.close()
+        except Exception:
+            pass
 
 class GmailSettingsRequest(BaseModel):
     method: str = "oauth"  # "oauth" or "app_password"

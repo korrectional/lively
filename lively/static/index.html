@@ -59,6 +59,7 @@
         <aside id="sidebar" class="sidebar">
             <div class="sidebar-tabs">
                 <button class="tab-btn active" data-tab="tab-world">🗺️ World</button>
+                <button class="tab-btn" data-tab="tab-brain">🧠 Brain</button>
                 <button class="tab-btn" data-tab="tab-workshop">💻 Workshop</button>
                 <button class="tab-btn" data-tab="tab-memories">📖 Diary</button>
                 <button class="tab-btn" data-tab="tab-settings">✉️ Gmail</button>
@@ -107,6 +108,26 @@
                     <div class="object-list-section">
                         <h4>Placed Objects (<span id="obj-count">0</span>)</h4>
                         <div id="object-list" class="item-list"></div>
+                    </div>
+                </div>
+
+                <!-- Tab: Live Squirrel Brain & Thinking Stream -->
+                <div id="tab-brain" class="tab-pane">
+                    <h3>Lively's Neural Deliberation</h3>
+                    <p class="hint">Watch the robot squirrel's stream of consciousness as it surveys the world, retrieves past memories, and decides what to do.</p>
+
+                    <div class="card">
+                        <button id="btn-stream-think" class="btn primary full-width">⚡ Wake & Stream Thought Process</button>
+                    </div>
+
+                    <div class="card mt-2">
+                        <div class="code-header">
+                            <span class="code-title">🧠 Cognitive Terminal</span>
+                            <span id="think-status-badge" class="badge">Idle</span>
+                        </div>
+                        <div id="thought-console" class="thought-console-box">
+                            <div class="console-line system">> Lively neural core ready. Click above to stream thinking.</div>
+                        </div>
                     </div>
                 </div>
 

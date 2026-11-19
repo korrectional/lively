@@ -35,6 +35,34 @@ def cmd_wake(args):
     if res.email_sent:
         print(f" -> Email: Sent to {res.email_sent.get('subject')}")
 
+def cmd_think(args):
+    """Trigger wake cycle and display step-by-step thinking process in real-time."""
+    print("\n" + "="*60)
+    print("🧠 LIVELY SQUIRREL COGNITIVE DELIBERATION STREAM")
+    print("="*60)
+    gen = brain.think_trace()
+    for event in gen:
+        stage = event.get("stage", "").upper()
+        msg = event.get("message", "")
+        print(f"\n[{stage}] {msg}")
+
+        if stage == "PROMPT_READY":
+            print("-" * 50)
+            print("--- CONSTRUCTED PROMPT FOR SQUIRREL MIND ---")
+            print(event.get("prompt", "")[:400] + "\n... (memories & telemetry summarized)")
+            print("-" * 50)
+        elif stage == "RAW_COGNITION":
+            print("-" * 50)
+            print("--- RAW SQUIRREL THOUGHT OUTPUT ---")
+            print(event.get("raw_text", "").strip())
+            print("-" * 50)
+        elif stage == "ACTIONS_PARSED":
+            for act in event.get("actions", []):
+                print(f"  ⚡ {act.get('action_type')}: {act.get('parameters')}")
+    print("\n" + "="*60)
+    print("✅ SQUIRREL THINKING & ACTION CYCLE COMPLETED")
+    print("="*60 + "\n")
+
 def cmd_status(args):
     """Display system status."""
     st = world.get_state()
@@ -112,6 +140,10 @@ def main():
     # wake
     p_wake = subparsers.add_parser("wake", help="Trigger a squirrel wake cycle")
     p_wake.set_defaults(func=cmd_wake)
+
+    # think
+    p_think = subparsers.add_parser("think", help="Watch the squirrel think in real-time")
+    p_think.set_defaults(func=cmd_think)
 
     # status
     p_status = subparsers.add_parser("status", help="Show Lively telemetry and status")

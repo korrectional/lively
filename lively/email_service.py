@@ -340,9 +340,12 @@ class EmailService:
                                 to_hdr = self._decode_mime_words(msg.get("To") or "")
                                 delivered_to = self._decode_mime_words(msg.get("Delivered-To") or "")
                                 cc_hdr = self._decode_mime_words(msg.get("Cc") or "")
-                                recipient_str = f"{to_hdr} {delivered_to} {cc_hdr}".strip()
+                                x_orig = self._decode_mime_words(msg.get("X-Original-To") or "")
+                                x_forw = self._decode_mime_words(msg.get("X-Forwarded-To") or "")
+                                env_to = self._decode_mime_words(msg.get("Envelope-To") or "")
+                                recipient_str = f"{to_hdr} {delivered_to} {cc_hdr} {x_orig} {x_forw} {env_to}".strip()
 
-                                # STRICT FILTER: Only emails sent to tarassekanev+squirrel@gmail.com OR greeting 'Hey Squirrel' (or typos)
+                                # STRICT FILTER: Only emails sent directly to tarassekanev+squirrel@gmail.com
                                 if is_addressed_to_squirrel(subject, body, recipient_str):
                                     record = memory.log_received_email(
                                         sender=sender,

@@ -82,6 +82,9 @@ function resizeCanvas() {
     canvas.height = container.clientHeight;
 }
 window.addEventListener("resize", resizeCanvas);
+if (window.ResizeObserver && container) {
+    new ResizeObserver(() => resizeCanvas()).observe(container);
+}
 resizeCanvas();
 
 // Coordinate Transformations
@@ -415,49 +418,14 @@ function drawPlayer(c, x, y, scale, name, avatarType = "scout", time = 0) {
 }
 
 // ==========================================
-// Object Clumping & Radial Layout
+// Object Position Mapping
 // ==========================================
 function getObjectVisualOffsets(objects, zoom = 1.0) {
-    if (!objects || objects.length === 0) return new Map();
-    // If multiple objects share coordinates (within 35m) or are too close, fan them out radially
-    const clusters = {};
-    const clusterDist = Math.max(35, 40 / Math.max(0.1, zoom));
-
-    objects.forEach(obj => {
-        let placed = false;
-        for (const k in clusters) {
-            const [cx, cy] = k.split(",").map(Number);
-            if (Math.hypot(obj.x - cx, obj.y - cy) < clusterDist) {
-                clusters[k].push(obj);
-                placed = true;
-                break;
-            }
-        }
-        if (!placed) {
-            const key = `${obj.x},${obj.y}`;
-            clusters[key] = [obj];
-        }
-    });
-
+    // Objects have guaranteed physical separation (min 60m).
+    // Always render at true world coordinates to prevent spatial distortion on zoom.
     const offsets = new Map();
-    for (const k in clusters) {
-        const group = clusters[k];
-        if (group.length === 1) {
-            offsets.set(group[0].id, { x: group[0].x, y: group[0].y, isClustered: false });
-        } else {
-            const count = group.length;
-            // Radius in world units, ensuring minimum 45 screen pixels spread
-            const radius = Math.max(35, 48 / Math.max(0.2, zoom));
-            group.forEach((obj, idx) => {
-                const angle = (idx * (Math.PI * 2) / count) - (Math.PI / 2);
-                offsets.set(obj.id, {
-                    x: obj.x + Math.cos(angle) * radius,
-                    y: obj.y + Math.sin(angle) * radius,
-                    isClustered: true
-                });
-            });
-        }
-    }
+    if (!objects) return offsets;
+    objects.forEach(obj => offsets.set(obj.id, { x: obj.x, y: obj.y, isClustered: false }));
     return offsets;
 }
 
@@ -557,56 +525,48 @@ function render(timestamp) {
         ctx.stroke();
     }
 
-    // Calculate smart offsets for clustered objects
-    const objOffsets = getObjectVisualOffsets(state.world.objects, zoom);
-
-    // Draw World Objects
+    // Draw World Objects (rendered directly at true coordinates)
     state.world.objects.forEach(obj => {
-        const offset = objOffsets.get(obj.id) || { x: obj.x, y: obj.y };
-        const p = worldToScreen(offset.x, offset.y);
-        const spriteScale = Math.max(0.6, Math.min(1.8, zoom));
-
-        // Draw connecting leader line if fanned out
-        if (offset.isClustered) {
-            const originP = worldToScreen(obj.x, obj.y);
-            ctx.strokeStyle = "rgba(148, 163, 184, 0.35)";
-            ctx.lineWidth = 1;
-            ctx.setLineDash([2, 4]);
-            ctx.beginPath();
-            ctx.moveTo(originP.x, originP.y);
-            ctx.lineTo(p.x, p.y);
-            ctx.stroke();
-            ctx.setLineDash([]);
-        }
+        const p = worldToScreen(obj.x, obj.y);
+        const spriteScale = Math.max(0.35, Math.min(1.8, zoom));
 
         // Render clean emoji object
         drawObjectEmoji(ctx, p.x, p.y, 28 * spriteScale, obj, time);
 
-        // Draw pill label badge (never raw overlapping text!)
-        drawPillBadge(ctx, p.x, p.y + 24 * spriteScale, obj.name, "#cbd5e1");
+        // Draw pill label badge when not zoomed out to macro scale
+        if (zoom >= 0.45) {
+            drawPillBadge(ctx, p.x, p.y + 22 * spriteScale, obj.name, "#cbd5e1");
+        }
     });
 
     // Draw Robot Squirrel (Clean 🐿️ emoji with matching nametag pill)
     const sq = state.world.squirrel;
     const sqScreen = worldToScreen(sq.x, sq.y);
-    const sqScale = Math.max(0.7, Math.min(2.0, zoom));
+    const sqScale = Math.max(0.35, Math.min(1.8, zoom));
     drawSquirrelEmoji(ctx, sqScreen.x, sqScreen.y, 38 * sqScale, sq.heading, time);
-    drawPillBadge(ctx, sqScreen.x, sqScreen.y - 26 * sqScale, sq.name || "Squirrel", "#38bdf8", "rgba(15, 23, 42, 0.9)", "rgba(6, 182, 212, 0.4)");
+    if (zoom >= 0.45) {
+        drawPillBadge(ctx, sqScreen.x, sqScreen.y - 24 * sqScale, sq.name || "Squirrel", "#38bdf8", "rgba(15, 23, 42, 0.9)", "rgba(6, 182, 212, 0.4)");
+    }
 
     // Draw Other Users (filter out own ID and name so NEVER duplicate!)
     state.world.users.forEach(u => {
         if (state.myUserId && u.id === state.myUserId) return;
         if (u.name === state.user.name) return;
         const up = worldToScreen(u.x, u.y);
-        drawPlayer(ctx, up.x, up.y, Math.max(0.6, Math.min(1.5, zoom)), u.name, u.avatar_type || "scout", time);
-        drawPillBadge(ctx, up.x, up.y - 24 * zoom, u.name, "#94a3b8");
+        const otherScale = Math.max(0.35, Math.min(1.5, zoom));
+        drawPlayer(ctx, up.x, up.y, otherScale, u.name, u.avatar_type || "scout", time);
+        if (zoom >= 0.45) {
+            drawPillBadge(ctx, up.x, up.y - 22 * otherScale, u.name, "#94a3b8");
+        }
     });
 
     // Draw Your Avatar (Quantum Scout Spaceship intact!)
     const userScreen = worldToScreen(state.user.x, state.user.y);
-    const playerScale = Math.max(0.7, Math.min(1.8, zoom));
+    const playerScale = Math.max(0.35, Math.min(1.8, zoom));
     drawPlayer(ctx, userScreen.x, userScreen.y, playerScale, state.user.name, state.avatarType, time);
-    drawPillBadge(ctx, userScreen.x, userScreen.y - 26 * playerScale, `${state.user.name} (You)`, "#38bdf8", "rgba(15, 23, 42, 0.9)", "rgba(6, 182, 212, 0.4)");
+    if (zoom >= 0.45) {
+        drawPillBadge(ctx, userScreen.x, userScreen.y - 24 * playerScale, `${state.user.name} (You)`, "#38bdf8", "rgba(15, 23, 42, 0.9)", "rgba(6, 182, 212, 0.4)");
+    }
 
     // Smooth movement towards target
     updateUserMovement();
@@ -729,6 +689,7 @@ canvas.addEventListener("mousedown", (e) => {
         // Auto-fill coordinates in Add Object form
         document.getElementById("obj-x").value = clickWorld.x;
         document.getElementById("obj-y").value = clickWorld.y;
+        updateObjectDistanceHint();
     } else if (e.button === 1 || e.button === 2) { // Middle or right click to pan
         state.camera.isDragging = true;
         state.camera.targetX = undefined; // Cancel auto-pan
@@ -761,17 +722,23 @@ canvas.addEventListener("wheel", (e) => {
     const cy = canvas.height / 2;
 
     const oldZoom = state.camera.zoom;
-    const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
-    const newZoom = Math.max(0.2, Math.min(3.0, oldZoom * zoomFactor));
+    const isZoomIn = e.deltaY < 0;
+    const zoomFactor = isZoomIn ? 1.15 : 0.85;
+    const newZoom = Math.max(0.15, Math.min(3.0, oldZoom * zoomFactor));
     if (newZoom === oldZoom) return;
 
-    // Maintain the world point under the mouse cursor at the exact same screen position
-    const wx = state.camera.x + (mx - cx) / oldZoom;
-    const wy = state.camera.y - (my - cy) / oldZoom;
+    if (isZoomIn) {
+        // Zooming in: zoom toward mouse cursor position
+        const wx = state.camera.x + (mx - cx) / oldZoom;
+        const wy = state.camera.y - (my - cy) / oldZoom;
 
-    state.camera.zoom = newZoom;
-    state.camera.x = wx - (mx - cx) / newZoom;
-    state.camera.y = wy + (my - cy) / newZoom;
+        state.camera.zoom = newZoom;
+        state.camera.x = wx - (mx - cx) / newZoom;
+        state.camera.y = wy + (my - cy) / newZoom;
+    } else {
+        // Zooming out: zoom smoothly centered on the current viewport so entities do not drift or jump
+        state.camera.zoom = newZoom;
+    }
     state.camera.targetX = state.camera.x;
     state.camera.targetY = state.camera.y;
 }, { passive: false });
@@ -1493,6 +1460,46 @@ if (objCustomIconInput && objIconInput) {
     });
 }
 
+// Proximity Check Hint for Object Builder
+function updateObjectDistanceHint() {
+    const hintEl = document.getElementById("obj-distance-status");
+    if (!hintEl) return;
+    const xInput = document.getElementById("obj-x");
+    const yInput = document.getElementById("obj-y");
+    if (!xInput || !yInput) return;
+    const x = parseFloat(xInput.value);
+    const y = parseFloat(yInput.value);
+    if (isNaN(x) || isNaN(y)) {
+        hintEl.innerHTML = `<span style="color: var(--text-muted);">Spacing: 60m minimum distance required between objects</span>`;
+        return;
+    }
+    const minDist = state.world?.min_object_distance || 60;
+    const objects = state.world?.objects || [];
+    if (objects.length === 0) {
+        hintEl.innerHTML = `<span style="color: #34d399;">✓ Safe clearance (open landscape)</span>`;
+        return;
+    }
+    let closest = null;
+    let minD = Infinity;
+    for (const obj of objects) {
+        const d = Math.hypot(obj.x - x, obj.y - y);
+        if (d < minD) {
+            minD = d;
+            closest = obj;
+        }
+    }
+    if (minD < minDist && closest) {
+        hintEl.innerHTML = `<span style="color: #f87171;">⚠️ Too close to '${closest.name}' (${minD.toFixed(1)}m away — min ${minDist.toFixed(0)}m required)</span>`;
+    } else if (closest) {
+        hintEl.innerHTML = `<span style="color: #34d399;">✓ Safe clearance (${minD.toFixed(1)}m to nearest object: '${closest.name}')</span>`;
+    }
+}
+
+const objXEl = document.getElementById("obj-x");
+const objYEl = document.getElementById("obj-y");
+if (objXEl) objXEl.addEventListener("input", updateObjectDistanceHint);
+if (objYEl) objYEl.addEventListener("input", updateObjectDistanceHint);
+
 // Add Object Form
 document.getElementById("form-add-object").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1513,9 +1520,13 @@ document.getElementById("form-add-object").addEventListener("submit", async (e) 
             document.getElementById("obj-name").value = "";
             document.getElementById("obj-desc").value = "";
             showNotification(`📍 Placed "${name}" into the world!`);
+            updateObjectDistanceHint();
+        } else {
+            const errData = await res.json().catch(() => ({}));
+            showNotification(`⚠️ ${errData.detail || "Cannot place object: too close to another object."}`, "warning");
         }
     } catch (err) {
-        alert("Error adding object: " + err);
+        showNotification("Error adding object: " + err, "warning");
     }
 });
 

@@ -7,8 +7,8 @@ import json
 import math
 import uuid
 import time
-from typing import Dict, List, Optional
-from threading import Lock
+from typing import Dict, List, Optional, Tuple
+from threading import RLock
 
 from lively.config import (
     WORLD_FILE,
@@ -16,18 +16,17 @@ from lively.config import (
     WORLD_MAX_X,
     WORLD_MIN_Y,
     WORLD_MAX_Y,
+    MIN_OBJECT_DISTANCE,
     ensure_directories
 )
 from lively.models import WorldObject, SquirrelState, UserAvatar
-
-MIN_PHYSICAL_CLEARANCE = 30.0
 
 class WorldManager:
     """Manages the 2D world coordinates, landmarks, and entity states."""
 
     def __init__(self, file_path=WORLD_FILE):
         self.file_path = file_path
-        self._lock = Lock()
+        self._lock = RLock()
         self.squirrel = SquirrelState()
         self.objects: Dict[str, WorldObject] = {}
         self.active_users: Dict[str, UserAvatar] = {}
@@ -111,12 +110,33 @@ class WorldManager:
         if self.file_path.exists():
             self._last_loaded_mtime = self.file_path.stat().st_mtime
 
-    def find_open_coordinates(self, target_x: float, target_y: float, min_clearance: float = MIN_PHYSICAL_CLEARANCE) -> tuple[float, float]:
+    def get_closest_object(self, x: float, y: float, exclude_id: Optional[str] = None) -> Tuple[Optional[WorldObject], float]:
+        """Return the closest object and distance to (x, y), or (None, inf)."""
+        with self._lock:
+            return self._get_closest_object_unlocked(x, y, exclude_id=exclude_id)
+
+    def _get_closest_object_unlocked(self, x: float, y: float, exclude_id: Optional[str] = None) -> Tuple[Optional[WorldObject], float]:
+        closest = None
+        min_dist = float("inf")
+        for obj in self.objects.values():
+            if exclude_id and obj.id == exclude_id:
+                continue
+            dist = math.hypot(obj.x - x, obj.y - y)
+            if dist < min_dist:
+                min_dist = dist
+                closest = obj
+        return closest, min_dist
+
+    def find_open_coordinates(self, target_x: float, target_y: float, min_clearance: float = MIN_OBJECT_DISTANCE) -> Tuple[float, float]:
         """
         Enforces physical spatial separation.
         If target_x, target_y is too close to an existing physical object (< min_clearance),
         searches in concentric rings for the nearest vacant coordinate.
         """
+        with self._lock:
+            return self._find_open_coordinates_unlocked(target_x, target_y, min_clearance=min_clearance)
+
+    def _find_open_coordinates_unlocked(self, target_x: float, target_y: float, min_clearance: float = MIN_OBJECT_DISTANCE) -> Tuple[float, float]:
         tx = max(WORLD_MIN_X, min(WORLD_MAX_X, float(target_x)))
         ty = max(WORLD_MIN_Y, min(WORLD_MAX_Y, float(target_y)))
 
@@ -130,8 +150,15 @@ class WorldManager:
             return (round(tx, 1), round(ty, 1))
 
         # Search outward in concentric rings
-        radii = [min_clearance, min_clearance * 1.5, min_clearance * 2.0, min_clearance * 3.0]
-        angles = [0, 45, 90, 135, 180, 225, 270, 315]
+        radii = [
+            min_clearance,
+            min_clearance * 1.5,
+            min_clearance * 2.0,
+            min_clearance * 2.5,
+            min_clearance * 3.0,
+            min_clearance * 4.0
+        ]
+        angles = [0, 30, 45, 60, 90, 120, 135, 150, 180, 210, 225, 240, 270, 300, 315, 330]
 
         for r in radii:
             for deg in angles:
@@ -165,18 +192,30 @@ class WorldManager:
                     "min_y": WORLD_MIN_Y,
                     "max_y": WORLD_MAX_Y
                 },
+                "min_object_distance": MIN_OBJECT_DISTANCE,
                 "squirrel": self.squirrel.model_dump(),
                 "objects": [obj.model_dump() for obj in self.objects.values()],
                 "users": [user.model_dump() for user in self.active_users.values()]
             }
 
     def add_object(self, name: str, x: float, y: float, obj_type: str = "landmark",
-                   icon: str = "", description: str = "", created_by: str = "user", metadata: Optional[dict] = None) -> WorldObject:
+                   icon: str = "", description: str = "", created_by: str = "user",
+                   metadata: Optional[dict] = None, enforce_distance: bool = False,
+                   min_distance: float = MIN_OBJECT_DISTANCE) -> WorldObject:
         """Add a landmark or object to the map with guaranteed physical separation."""
         with self._lock:
+            if enforce_distance:
+                closest, dist = self._get_closest_object_unlocked(x, y)
+                if closest is not None and dist < min_distance:
+                    raise ValueError(
+                        f"Too close to '{closest.name}' ({dist:.1f}m away). "
+                        f"Objects must be placed at least {min_distance:.0f}m apart."
+                    )
+                actual_x, actual_y = round(float(x), 1), round(float(y), 1)
+            else:
+                actual_x, actual_y = self._find_open_coordinates_unlocked(x, y, min_clearance=min_distance)
+
             obj_id = f"obj_{uuid.uuid4().hex[:8]}"
-            # Ensure physical separation: objects cannot occupy the exact same place
-            actual_x, actual_y = self.find_open_coordinates(x, y, min_clearance=MIN_PHYSICAL_CLEARANCE)
             obj = WorldObject(
                 id=obj_id,
                 name=name,

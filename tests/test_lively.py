@@ -35,12 +35,17 @@ def test_world_manager(temp_dir):
     assert obj1.x == 120.0
     assert obj1.y == -80.0
 
-    # Adding second object at EXACT SAME SPOT (120, -80) must be nudged away
+    # Adding second object at EXACT SAME SPOT (120, -80) without enforcement must be nudged away >= 60m
     obj2 = wm.add_object("Duplicate Beacon", 120.0, -80.0, "sensor", "Beacon 2")
     assert (obj2.x != 120.0 or obj2.y != -80.0)
     import math
     dist = math.hypot(obj2.x - obj1.x, obj2.y - obj1.y)
-    assert dist >= 25.0  # Physically separate
+    assert dist >= 60.0  # Enforces 60m minimum distance
+
+    # Adding with enforce_distance=True within 60m must raise ValueError
+    with pytest.raises(ValueError) as excinfo:
+        wm.add_object("Illegal Proximity", 125.0, -80.0, "sensor", "Too close", enforce_distance=True)
+    assert "Too close to 'Cyber Beacon'" in str(excinfo.value)
 
     # Check nearby objects
     nearby = wm.get_nearby_objects(100.0, -80.0, max_dist=50.0)
@@ -89,6 +94,19 @@ def test_memory_manager(temp_dir):
     caches = mm.get_caches()
     assert len(caches) == 1
     assert caches[0]["name"] == "Spare Resistors"
+
+def test_email_filtering():
+    from lively.memory import is_addressed_to_squirrel
+    # Emails sent to tarassekanev+squirrel@gmail.com must be accepted
+    assert is_addressed_to_squirrel(recipient="tarassekanev+squirrel@gmail.com") is True
+    assert is_addressed_to_squirrel(subject="Update", body="Hi there", recipient="David <tarassekanev+squirrel@gmail.com>") is True
+    assert is_addressed_to_squirrel(recipient="custom+squirrel@example.com") is True
+
+    # Emails sent ONLY to tarassekanev@gmail.com (without +squirrel) must NOT be accepted
+    assert is_addressed_to_squirrel(recipient="tarassekanev@gmail.com") is False
+    assert is_addressed_to_squirrel(subject="Security alert", body="App password created", recipient="tarassekanev@gmail.com") is False
+    assert is_addressed_to_squirrel(subject="Hi Squirrel", body="how are you?", recipient="tarassekanev@gmail.com") is False
+    assert is_addressed_to_squirrel(recipient="") is False
 
 def test_security_checker():
     from lively.security import check_safety

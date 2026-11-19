@@ -50,19 +50,11 @@ SQUIRREL_GREETING_PATTERN = re.compile(
 def is_addressed_to_squirrel(subject: str = "", body: str = "", recipient: str = "") -> bool:
     """
     Check if an incoming email is specifically addressed to Squirrel:
-    1. Sent to dedicated address tarassekanev+squirrel@gmail.com (or +squirrel@)
-    2. Or starts with 'Hey Squirrel' (case-insensitive, allowing common squirrel typos)
+    Must be sent directly to Squirrel's dedicated address (tarassekanev+squirrel@gmail.com or containing +squirrel@).
     """
     if recipient:
         rec_clean = recipient.lower()
         if SQUIRREL_EMAIL.lower() in rec_clean or "+squirrel@" in rec_clean:
-            return True
-    if subject and SQUIRREL_GREETING_PATTERN.search(subject.strip()):
-        return True
-    if body:
-        # Check the first non-empty lines of the email body
-        first_lines = "\n".join([line.strip() for line in body.splitlines() if line.strip()][:3])
-        if SQUIRREL_GREETING_PATTERN.search(first_lines):
             return True
     return False
 

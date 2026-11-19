@@ -108,15 +108,19 @@ async def reset_world():
 @app.post("/api/objects")
 async def add_world_object(req: NewObjectRequest):
     """Add a new object or landmark to the world."""
-    obj = world.add_object(
-        name=req.name,
-        x=req.x,
-        y=req.y,
-        obj_type=req.type,
-        icon=req.icon,
-        description=req.description,
-        created_by="user"
-    )
+    try:
+        obj = world.add_object(
+            name=req.name,
+            x=req.x,
+            y=req.y,
+            obj_type=req.type,
+            icon=req.icon,
+            description=req.description,
+            created_by="user",
+            enforce_distance=True
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     await broadcast({"type": "object_added", "object": obj.model_dump()})
     return obj.model_dump()
 

@@ -4,6 +4,7 @@ Stores and indexes identity, rolling summaries, daily journals, and caches.
 """
 
 import json
+import re
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
@@ -38,6 +39,27 @@ DEFAULT_SUMMARY = """# Squirrel's Long-Term Memory Summary
 - **Identity**: Squirrel — autonomous robotic squirrel, coder, writer, and explorer.
 - **Interests**: Socializing with humans and other AIs, writing blog posts, emailing David, building cool coding projects, and browsing the internet.
 """
+
+# Greeting regex pattern: matches 'Hey Squirrel' (case-insensitive, allowing squirrel typos like 'squirel', 'squrrel', etc.)
+SQUIRREL_GREETING_PATTERN = re.compile(
+    r"^\s*(?:re:\s*)*(?:fwd?:\s*)*(?:hey|hi|hello)\s+s(?:qu|q)[ui]*r+e?l+[a-z]*[\s\.,!:\-]?",
+    re.IGNORECASE
+)
+
+def is_addressed_to_squirrel(subject: str = "", body: str = "") -> bool:
+    """
+    Check if an incoming email is specifically addressed to Squirrel.
+    Requires subject or body to start with 'Hey Squirrel' (case-insensitive, allowing common squirrel typos).
+    """
+    if subject and SQUIRREL_GREETING_PATTERN.search(subject.strip()):
+        return True
+    if body:
+        # Check the first non-empty lines of the email body
+        first_lines = "\n".join([line.strip() for line in body.splitlines() if line.strip()][:3])
+        if SQUIRREL_GREETING_PATTERN.search(first_lines):
+            return True
+    return False
+
 
 class MemoryManager:
     """Handles read/write of persistent memory documents."""
@@ -83,6 +105,7 @@ class MemoryManager:
         self.summary_file.write_text(DEFAULT_SUMMARY.strip(), encoding="utf-8")
         self.caches_file.write_text("[]", encoding="utf-8")
         self.sent_emails_file.write_text("[]", encoding="utf-8")
+        self.received_emails_file.write_text("[]", encoding="utf-8")
         self.identity_file.write_text(DEFAULT_IDENTITY.strip(), encoding="utf-8")
 
     def get_identity(self) -> str:
@@ -315,16 +338,20 @@ class MemoryManager:
     # Received Emails (Replies from David)
     # ==========================================
     def get_received_emails(self) -> List[Dict[str, Any]]:
-        """List incoming email replies from David."""
+        """List incoming email replies from David directed to Squirrel."""
         if self.received_emails_file.exists():
             try:
-                return json.loads(self.received_emails_file.read_text(encoding="utf-8"))
+                raw_list = json.loads(self.received_emails_file.read_text(encoding="utf-8"))
+                return [e for e in raw_list if is_addressed_to_squirrel(e.get("subject", ""), e.get("body", ""))]
             except Exception:
                 return []
         return []
 
-    def log_received_email(self, sender: str, subject: str, body: str, date_str: str) -> Dict[str, Any]:
-        """Record an incoming email received from David."""
+    def log_received_email(self, sender: str, subject: str, body: str, date_str: str) -> Optional[Dict[str, Any]]:
+        """Record an incoming email received from David if addressed to Squirrel."""
+        if not is_addressed_to_squirrel(subject, body):
+            return None
+
         emails = self.get_received_emails()
         # Avoid duplicate records by checking sender + subject + date
         for e in emails:

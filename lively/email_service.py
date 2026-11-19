@@ -24,7 +24,7 @@ from lively.config import (
     BASE_DATA_DIR,
     ensure_directories
 )
-from lively.memory import memory
+from lively.memory import memory, is_addressed_to_squirrel
 
 GMAIL_CONFIG_FILE = BASE_DATA_DIR / "gmail_config.json"
 GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send"
@@ -307,7 +307,7 @@ class EmailService:
         return body.strip()
 
     def fetch_incoming_emails(self, max_count: int = 5) -> List[Dict[str, Any]]:
-        """Fetch incoming emails or replies from David to enable two-way conversation."""
+        """Fetch incoming emails or replies from David starting with 'Hey Squirrel' (or typos)."""
         cfg = self.get_settings()
         if cfg.get("method") == "app_password" and cfg.get("app_password"):
             user = cfg.get("user_email") or USER_EMAIL
@@ -317,12 +317,13 @@ class EmailService:
                 with imaplib.IMAP4_SSL("imap.gmail.com", 993, timeout=12) as mail:
                     mail.login(user, pwd)
                     mail.select("INBOX", readonly=True)
-                    # Search for messages
+                    # Search messages - scan recent 50 messages to locate squirrel messages
                     typ, data = mail.search(None, "ALL")
                     if typ == "OK" and data[0]:
                         msg_ids = data[0].split()
-                        recent_ids = msg_ids[-max_count:]
-                        for mid in reversed(recent_ids):
+                        # Inspect recent emails in reverse chronological order
+                        scan_ids = reversed(msg_ids[-50:])
+                        for mid in scan_ids:
                             res_typ, msg_data = mail.fetch(mid, "(RFC822)")
                             if res_typ == "OK" and msg_data and msg_data[0]:
                                 raw_email = msg_data[0][1]
@@ -331,8 +332,14 @@ class EmailService:
                                 subject = self._decode_mime_words(msg.get("Subject"))
                                 date_str = msg.get("Date") or ""
                                 body = self._extract_body(msg)
-                                record = memory.log_received_email(sender, subject, body, date_str)
-                                results.append(record)
+
+                                # STRICT FILTER: Only emails starting with 'Hey Squirrel' (or typos)
+                                if is_addressed_to_squirrel(subject, body):
+                                    record = memory.log_received_email(sender, subject, body, date_str)
+                                    if record:
+                                        results.append(record)
+                                        if len(results) >= max_count:
+                                            break
                 return results
             except Exception as e:
                 print(f"[EmailService] IMAP incoming error: {e}")

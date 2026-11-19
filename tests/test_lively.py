@@ -168,16 +168,45 @@ def test_thought_sessions_and_email_inbox(temp_dir):
     assert sessions[0]["cycle_number"] == 5
     assert "Contemplating tree acorns" in sessions[0]["raw_monologue"]
 
-    # Incoming emails / replies from David
-    mm.log_received_email(
+    # Incoming emails / replies from David with 'Hey Squirrel' (and typo variations)
+    rec1 = mm.log_received_email(
         sender="David <tarassekanev@gmail.com>",
         subject="Re: Hello from Squirrel",
         body="Hey Squirrel! I loved your new acorn radar script. Keep exploring!",
         date_str="Wed, 19 Nov 2026 01:20:00 -0500"
     )
+    assert rec1 is not None
+
+    # Typo: 'hey squirel' in subject
+    rec2 = mm.log_received_email(
+        sender="David <tarassekanev@gmail.com>",
+        subject="hey squirel - check this out",
+        body="Found some pinecones near the pond.",
+        date_str="Wed, 19 Nov 2026 01:25:00 -0500"
+    )
+    assert rec2 is not None
+
+    # Typo: 'Hi squrrel' in body
+    rec3 = mm.log_received_email(
+        sender="David <tarassekanev@gmail.com>",
+        subject="Quick note",
+        body="Hi squrrel!\nJust checking in.",
+        date_str="Wed, 19 Nov 2026 01:30:00 -0500"
+    )
+    assert rec3 is not None
+
+    # Unrelated spam / security alert: MUST BE REJECTED
+    rec_spam = mm.log_received_email(
+        sender="Google <no-reply@accounts.google.com>",
+        subject="Security alert: new sign-in",
+        body="App password created to sign in to your account",
+        date_str="Wed, 19 Nov 2026 01:35:00 -0500"
+    )
+    assert rec_spam is None
+
     inbox = mm.get_received_emails()
-    assert len(inbox) == 1
-    assert "loved your new acorn radar" in inbox[0]["body"]
+    assert len(inbox) == 3
+    assert not any("Security alert" in e["subject"] for e in inbox)
 
 def test_brain_action_parsing():
     brain = SquirrelBrain()

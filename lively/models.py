@@ -99,3 +99,4 @@ class WakeCycleResult(BaseModel):
     web_searches: List[Dict[str, str]] = Field(default_factory=list)
     executed_programs: List[Dict[str, Any]] = Field(default_factory=list)
     thought_log_file: str = ""
+    error: Optional[str] = None

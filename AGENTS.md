@@ -76,11 +76,12 @@ When modifying or deploying this project, you **MUST** uphold these constraints:
 6. **Automatic Coordinate Rounding**:
    - Coordinates entered with decimals or clicked on the map get auto-rounded (`Math.round` / `round(float(x))`).
    - `<input type="number" step="any">` is used in HTML so browser step validation never blocks submissions.
-7. **AGYC Reasoning Effort Set to `xhigh`**:
-   - When querying the LLM core via `agyc` or `agy`, pass `--effort xhigh` and use a 180-second timeout to allow deep deliberation and rich reasoning:
+7. **AGYC Reasoning Effort Set to `high`**:
+   - When querying the LLM core via `agyc` or `agy`, pass `--effort high` and use a 180-second timeout:
      ```python
-     cmd.extend(["--effort", "xhigh"])
+     cmd.extend(["--effort", "high"])
      ```
+   - **No Auto Pre-Set Actions or Fallback Spawning**: If the neural engine fails, encounters an error, or the model omits an action (like `JOURNAL`, `CACHE`, or `WRITE_BLOG`), make the error known immediately. Never spawn fake caches, fake blog posts, or synthetic fallback journal entries.
 8. **Program Execution & Sensory Feedback Loop**:
    - Squirrel can run his programs using `RUN_PROJECT: <repo> | <entrypoint>`.
    - All outputs (`stdout`, `stderr`, return code, and AGYC safety verdicts) are persisted in `~/.lively/projects/<repo>/.last_run.json` and `~/.lively/projects/.runs_history.json`.

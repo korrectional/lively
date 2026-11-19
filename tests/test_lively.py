@@ -256,7 +256,7 @@ def test_thought_sessions_and_email_inbox(temp_dir):
 
 def test_brain_action_parsing():
     brain = SquirrelBrain()
-    assert brain.effort == "xhigh"
+    assert brain.effort == "high"
     sample_output = """
 THINK: Sensing harmonic electromagnetic vibes in sector 4.
 MOVE_TO: 150.5, 200.0 | Scouting the northern boundary

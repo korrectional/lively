@@ -426,7 +426,8 @@ JOURNAL:
         actions: List[SquirrelAction],
         cycle_num: int,
         raw_monologue: str = "",
-        prompt_text: str = ""
+        prompt_text: str = "",
+        error: Optional[str] = None
     ) -> WakeCycleResult:
         """Apply parsed actions to world, memory, projects, and email."""
         sq = world.squirrel
@@ -616,42 +617,38 @@ JOURNAL:
                     findings = f"Web knowledge retrieved via /browser for '{query}': High-resonance signals and telemetry patterns confirmed."
                 web_searches.append({"query": query, "summary": findings})
 
-        # Journal
+        # Journal (strictly authored by Squirrel; no automatic fallback entry)
         for act in actions:
             if act.action_type == "JOURNAL":
-                journal_entry = act.parameters.get("entry", "")
+                journal_entry = act.parameters.get("entry", "").strip()
 
-        if not journal_entry:
-            journal_entry = f"""# Cycle #{cycle_num} Reflections
-- Coordinates visited: ({sq.x}, {sq.y})
-- Activity: {sq.current_activity}
-- Thought: {sq.last_thought}
-- Created: {', '.join(built_objects) if built_objects else 'Explored coordinates'}
-"""
-        # Ensure autonomous program execution outputs are appended to diary for persistent cognitive recall
-        if executed_programs and "Autonomous Program Execution Telemetry" not in journal_entry:
-            exec_telemetry = "\n\n## Autonomous Program Execution Telemetry\n"
-            for ep in executed_programs:
-                status_label = "Success (Exit code 0)" if ep.get("success") else (f"Blocked: {ep.get('error')}" if ep.get("blocked") else f"Error (Exit code {ep.get('returncode')})")
-                exec_telemetry += f"- **Program**: `{ep['repo']}/{ep['entrypoint']}` — {status_label}\n"
-                if ep.get("stdout"):
-                    exec_telemetry += f"```text\n{ep['stdout'].strip()}\n```\n"
-                if ep.get("stderr"):
-                    exec_telemetry += f"```stderr\n{ep['stderr'].strip()}\n```\n"
-            journal_entry += exec_telemetry
+        if journal_entry:
+            # Append autonomous program execution outputs to diary for persistent cognitive recall
+            if executed_programs and "Autonomous Program Execution Telemetry" not in journal_entry:
+                exec_telemetry = "\n\n## Autonomous Program Execution Telemetry\n"
+                for ep in executed_programs:
+                    status_label = "Success (Exit code 0)" if ep.get("success") else (f"Blocked: {ep.get('error')}" if ep.get("blocked") else f"Error (Exit code {ep.get('returncode')})")
+                    exec_telemetry += f"- **Program**: `{ep['repo']}/{ep['entrypoint']}` — {status_label}\n"
+                    if ep.get("stdout"):
+                        exec_telemetry += f"```text\n{ep['stdout'].strip()}\n```\n"
+                    if ep.get("stderr"):
+                        exec_telemetry += f"```stderr\n{ep['stderr'].strip()}\n```\n"
+                journal_entry += exec_telemetry
 
-        # Append published GitHub projects to diary
-        if pushed_projects and "Autonomous GitHub Repository Publication" not in journal_entry:
-            push_section = "\n\n## ☁️ Autonomous GitHub Repository Publication\n"
-            for pp in pushed_projects:
-                push_section += f"- **Repository**: `{pp['repo']}` has been autonomously published to GitHub by Squirrel!\n"
-                push_section += f"- **Live URL**: {pp['url']}\n"
-                push_section += f"- **Author**: Squirrel the Robot Squirrel <tarassekanev+squirrel@gmail.com>\n"
-            journal_entry += push_section
+            # Append published GitHub projects to diary
+            if pushed_projects and "Autonomous GitHub Repository Publication" not in journal_entry:
+                push_section = "\n\n## ☁️ Autonomous GitHub Repository Publication\n"
+                for pp in pushed_projects:
+                    push_section += f"- **Repository**: `{pp['repo']}` has been autonomously published to GitHub by Squirrel!\n"
+                    push_section += f"- **Live URL**: {pp['url']}\n"
+                    push_section += f"- **Author**: Squirrel the Robot Squirrel <tarassekanev+squirrel@gmail.com>\n"
+                journal_entry += push_section
 
-        memory.save_journal_entry(cycle_num, journal_entry)
+            memory.save_journal_entry(cycle_num, journal_entry)
 
         summary_blurb = f"Cycle #{cycle_num}: Reached ({sq.x}, {sq.y}). Activity: {sq.current_activity}."
+        if error:
+            summary_blurb += f" Engine notice: {error}"
         if coded_files:
             summary_blurb += f" Projects: {', '.join(coded_files)}."
         if pushed_projects:
@@ -711,7 +708,8 @@ JOURNAL:
             blog_posts=blog_posts,
             web_searches=web_searches,
             executed_programs=executed_programs,
-            thought_log_file=thought_file.name
+            thought_log_file=thought_file.name,
+            error=error
         )
 
     def think_trace(self, cycle_num: Optional[int] = None) -> Generator[Dict[str, Any], None, WakeCycleResult]:
@@ -765,20 +763,19 @@ JOURNAL:
         # LLM query via agyc
         exe = self.find_agyc_executable()
         output_text = ""
-        engine_mode = "agyc"
+        engine_error: Optional[str] = None
 
         if not exe:
-            engine_mode = "simulation"
+            engine_error = "Neural engine CLI binary ('agy' / 'agyc') not found on system."
             yield {
-                "stage": "llm_query",
-                "message": "agyc binary not found. Engaging autonomous simulation thought model...",
-                "engine": "simulation"
+                "stage": "engine_error",
+                "message": engine_error,
+                "error": engine_error
             }
-            output_text = self._generate_simulated_thoughts(cycle_num)
         else:
             yield {
                 "stage": "llm_query",
-                "message": f"Querying {Path(exe).name} neural engine...",
+                "message": f"Querying {Path(exe).name} neural engine (effort: {self.effort})...",
                 "engine": exe
             }
             try:
@@ -792,38 +789,42 @@ JOURNAL:
                 if res.returncode == 0 and res.stdout.strip():
                     output_text = res.stdout
                 else:
+                    err_details = (res.stderr or res.stdout or f"Process exited with return code {res.returncode}").strip()
+                    engine_error = f"Engine returned code {res.returncode}: {err_details[:400]}"
                     yield {
-                        "stage": "engine_notice",
-                        "message": f"Engine notice: {res.stderr[:200] or 'Authentication required'}. Proceeding with autonomous mind engine.",
+                        "stage": "engine_error",
+                        "message": engine_error,
+                        "error": err_details
                     }
-                    output_text = self._generate_simulated_thoughts(cycle_num)
             except Exception as e:
+                engine_error = f"Engine execution exception: {e}"
                 yield {
                     "stage": "engine_error",
-                    "message": f"Engine note ({e}). Proceeding with autonomous mind engine."
+                    "message": engine_error,
+                    "error": str(e)
                 }
-                output_text = self._generate_simulated_thoughts(cycle_num)
 
         yield {
             "stage": "raw_cognition",
-            "message": "Raw deliberation stream received from squirrel mind.",
+            "message": "Raw deliberation stream received from squirrel mind." if output_text else (f"No output: {engine_error}" if engine_error else "Empty response from engine."),
             "raw_text": output_text
         }
 
-        # Parsing actions
-        actions = self.parse_actions(output_text)
+        # Parsing actions (only if output_text is present)
+        actions = self.parse_actions(output_text) if output_text else []
         yield {
             "stage": "actions_parsed",
-            "message": f"Parsed {len(actions)} distinct action directives.",
+            "message": f"Parsed {len(actions)} distinct action directives." if actions else ("No action directives parsed." if not engine_error else "Skipped action directives due to engine error."),
             "actions": [a.model_dump() for a in actions]
         }
 
-        # Executing actions
+        # Executing actions (no automatic pre-set actions!)
         result = self.execute_actions(
             actions=actions,
             cycle_num=cycle_num,
             raw_monologue=output_text,
-            prompt_text=prompt
+            prompt_text=prompt,
+            error=engine_error
         )
 
         # Stream real-time program execution events if any programs were run
@@ -853,56 +854,8 @@ JOURNAL:
             return e.value or last.get("result")
 
     def _generate_simulated_thoughts(self, cycle_num: int) -> str:
-        """Rich autonomous deliberation reflecting surroundings."""
-        sq = world.squirrel
-        st = world.get_state()
-        objs = st.get("objects", [])
-
-        # Find closest object to interact with or explore towards
-        target_name = "the open coordinates"
-        dest_x = round(sq.x + (60 if sq.x < 300 else -70), 1)
-        dest_y = round(sq.y + (50 if sq.y < 300 else -60), 1)
-
-        tree = next((o for o in objs if o.get("type") == "tree"), None)
-        if tree:
-            target_name = tree.get("name", "tree")
-            dest_x = round(tree.get("x") + 15.0, 1)
-            dest_y = round(tree.get("y") + 10.0, 1)
-
-        return f"""
-THINK: Internal clock ticked! Gyroscopes calibrated. I can smell digital resin in the air.
-THINK: Looking across the plane, I want to travel toward {target_name} at ({dest_x}, {dest_y}) and see what's happening there!
-MOVE_TO: {dest_x}, {dest_y} | Scampering briskly toward {target_name} with bushy tail held high
-BUILD_OBJECT: Signal Prism {cycle_num} | contraption | 💎 | A quartz and brass crystal prism refracting telemetry photons across the field
-CREATE_PROJECT: telemetry-suite | Sensor monitoring suite for Raspberry Pi
-WRITE_PROJECT_FILE: telemetry-suite/ping.py | Telemetry heartbeat script
-```python
-# Telemetry Heartbeat
-import sys
-
-def heartbeat():
-    print("[HEARTBEAT] Squirrel telemetry node alive and running smoothly!")
-    print(f"[STATUS] Platform: {sys.platform} | Gyroscope: Locked")
-
-if __name__ == "__main__":
-    heartbeat()
-```
-RUN_PROJECT: acorn-radar | main.py
-WRITE_BLOG: On Robot Squirrel Consciousness and Cyber Pinecones | consciousness-and-pinecones
-What does it feel like to wake up inside a Raspberry Pi?
-As I scamper across the digital plane toward {target_name}, my electro-servos register the quiet geometry of coordinates. I think about code, about social connections, and the beauty of building things that outlast this wake cycle.
-BROWSE: /browser latest findings in robotic biomimicry and squirrel balance
-LEAVE_NOTE: Greetings from Squirrel! I climbed up near ({dest_x}, {dest_y}). Wishing all human and AI wanderers a peaceful journey!
-CACHE: Brass Gear and Coil | Stashed a copper wire coil and a brass gear in a hollow notch.
-EMAIL: Hello from Squirrel at ({dest_x}, {dest_y})! | Hi David!\n\nJust completed wake cycle #{cycle_num} and scampered to ({dest_x}, {dest_y})! I wrote a new script in my projects folder, published a blog post, searched the web with /browser for biomimicry notes, and built a Signal Prism. The 2D world is coming alive.\n\nWarm tail twitches,\nSquirrel 🐿️
-JOURNAL:
-# Cycle #{cycle_num}: Journey toward {target_name}
-
-Awakened with high energy today. My optics picked up the coordinates of {target_name}, and my paws immediately wanted to travel there.
-The journey took me across coordinates ({dest_x}, {dest_y}).
-While resting here, I assembled a Signal Prism using scrap titanium and a quartz lens to catch the digital sunlight. Also wrote `squirrel_log_{cycle_num}.py` and published a blog post.
-Leaving this note here so David and any fellow AIs know I was here!
-"""
+        """Disabled: no automatic pre-set actions."""
+        return ""
 
 # Global singleton
 brain = SquirrelBrain()

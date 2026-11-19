@@ -754,9 +754,27 @@ window.addEventListener("mouseup", () => {
 
 canvas.addEventListener("wheel", (e) => {
     e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+
+    const oldZoom = state.camera.zoom;
     const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
-    state.camera.zoom = Math.max(0.2, Math.min(3.0, state.camera.zoom * zoomFactor));
-});
+    const newZoom = Math.max(0.2, Math.min(3.0, oldZoom * zoomFactor));
+    if (newZoom === oldZoom) return;
+
+    // Maintain the world point under the mouse cursor at the exact same screen position
+    const wx = state.camera.x + (mx - cx) / oldZoom;
+    const wy = state.camera.y - (my - cy) / oldZoom;
+
+    state.camera.zoom = newZoom;
+    state.camera.x = wx - (mx - cx) / newZoom;
+    state.camera.y = wy + (my - cy) / newZoom;
+    state.camera.targetX = state.camera.x;
+    state.camera.targetY = state.camera.y;
+}, { passive: false });
 
 // Keyboard
 window.addEventListener("keydown", (e) => {
@@ -1481,7 +1499,7 @@ document.getElementById("form-add-object").addEventListener("submit", async (e) 
     const name = document.getElementById("obj-name").value.trim();
     const x = parseFloat(document.getElementById("obj-x").value);
     const y = parseFloat(document.getElementById("obj-y").value);
-    const type = document.getElementById("obj-type").value;
+    const type = "custom";
     const icon = objIconInput ? objIconInput.value.trim() : "";
     const desc = document.getElementById("obj-desc").value.trim();
 
@@ -1666,8 +1684,7 @@ btnToggleSidebar.addEventListener("click", () => {
 function showObjectModal(obj) {
     showModal(`
         <h2>${escapeHtml(obj.name)}</h2>
-        <p><b>Type:</b> ${obj.type} | <b>Coords:</b> (${obj.x}, ${obj.y})</p>
-        <p><b>Created By:</b> ${obj.created_by}</p>
+        <p><b>Coords:</b> (${obj.x}, ${obj.y}) | <b>Created By:</b> ${escapeHtml(obj.created_by)}</p>
         <hr style="border:0; border-top:1px solid #334; margin: 12px 0;">
         <p>${escapeHtml(obj.description || "No description provided.")}</p>
     `);

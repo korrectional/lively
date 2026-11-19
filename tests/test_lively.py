@@ -158,6 +158,18 @@ def test_project_manager(temp_dir):
     assert res_evil.blocked is True
     assert "BLOCKED BY SAFETY CHECKER" in res_evil.error
 
+    # Verify run history and last_run are persisted
+    last_run = pm.get_last_run("quantum-acorn")
+    assert last_run is not None
+    assert last_run["repo"] == "quantum-acorn"
+    assert last_run["entrypoint"] == "evil.py"
+    assert last_run["blocked"] is True
+
+    recent_runs = pm.get_recent_runs(limit=5)
+    assert len(recent_runs) >= 2
+    assert recent_runs[0]["repo"] == "quantum-acorn"
+    assert any(r["entrypoint"] == "main.py" and "Cyber Nut Acquired!" in r["stdout"] for r in recent_runs)
+
     # Reset wipes all projects completely
     pm.reset()
     assert len(pm.list_projects()) == 0
@@ -395,4 +407,67 @@ def test_verify_app_password_invalid():
     res = EmailService.verify_app_password("", "")
     assert res["success"] is False
     assert "required" in res["error"].lower()
+
+def test_squirrel_runs_and_perceives_program_output(temp_dir):
+    """Verify that squirrel executes programs, records output, and perceives it in prompt and diary."""
+    from lively.projects import ProjectManager
+    from lively.brain import SquirrelBrain
+    from lively.memory import MemoryManager
+    from lively.world import WorldManager
+
+    pm = ProjectManager(projects_dir=temp_dir / "projects")
+    wm = WorldManager(file_path=temp_dir / "world.json")
+    mm = MemoryManager(memories_dir=temp_dir / "memories", journal_dir=temp_dir / "memories" / "journal")
+
+    # Seed project with custom program
+    pm.create_project("acorn-sweep", "Acorn sensor sweep")
+    pm.save_file("acorn-sweep", "sweep.py", 'print("ACORN_DETECTED_AT_X100_Y200")\n', "Add sweep script")
+
+    # Run project via ProjectManager
+    res = pm.execute_project("acorn-sweep", "sweep.py")
+    assert res.success is True
+    assert "ACORN_DETECTED_AT_X100_Y200" in res.stdout
+
+    # Now verify SquirrelBrain prompt compiles with RECENT PROGRAM EXECUTION OUTPUTS & TELEMETRY
+    brain = SquirrelBrain()
+    # Temporarily monkeypatch global projects to pm
+    import lively.brain as lb
+    orig_projects = lb.projects
+    orig_world = lb.world
+    orig_memory = lb.memory
+    try:
+        lb.projects = pm
+        lb.world = wm
+        lb.memory = mm
+
+        prompt = brain.construct_prompt(cycle_num=1)
+        assert "RECENT PROGRAM EXECUTION OUTPUTS & TELEMETRY:" in prompt
+        assert "acorn-sweep/sweep.py" in prompt
+        assert "ACORN_DETECTED_AT_X100_Y200" in prompt
+
+        # Test execute_actions with RUN_PROJECT directive
+        sample_output = """
+THINK: I should run the acorn sweep script and inspect what it found!
+RUN_PROJECT: acorn-sweep | sweep.py
+JOURNAL:
+# Cycle #1
+Ran the sensor program to check for digital acorns.
+"""
+        actions = brain.parse_actions(sample_output)
+        wake_res = brain.execute_actions(actions, cycle_num=1, raw_monologue=sample_output, prompt_text=prompt)
+        assert len(wake_res.executed_programs) == 1
+        assert wake_res.executed_programs[0]["repo"] == "acorn-sweep"
+        assert "ACORN_DETECTED_AT_X100_Y200" in wake_res.executed_programs[0]["stdout"]
+
+        # Verify diary has the telemetry output recorded
+        journal_files = list((temp_dir / "memories" / "journal").glob("*.md"))
+        assert len(journal_files) == 1
+        content = journal_files[0].read_text(encoding="utf-8")
+        assert "Autonomous Program Execution Telemetry" in content
+        assert "ACORN_DETECTED_AT_X100_Y200" in content
+    finally:
+        lb.projects = orig_projects
+        lb.world = orig_world
+        lb.memory = orig_memory
+
 

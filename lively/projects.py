@@ -6,6 +6,7 @@ Manages multi-file Git repositories, code projects, and safe execution with AGYC
 import os
 import sys
 import re
+import json
 import shutil
 import subprocess
 from pathlib import Path
@@ -138,6 +139,62 @@ if __name__ == "__main__":
                 except Exception:
                     pass
 
+    @property
+    def _runs_history_path(self) -> Path:
+        return self.projects_dir / ".runs_history.json"
+
+    def _record_run(self, record: Dict[str, Any]):
+        """Persist execution record to global project run history and repo local state."""
+        try:
+            repo_name = record.get("repo", "")
+            if repo_name:
+                repo_dir = self.projects_dir / repo_name
+                if repo_dir.exists() and repo_dir.is_dir():
+                    (repo_dir / ".last_run.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
+
+            history = []
+            if self._runs_history_path.exists():
+                try:
+                    history = json.loads(self._runs_history_path.read_text(encoding="utf-8"))
+                    if not isinstance(history, list):
+                        history = []
+                except Exception:
+                    history = []
+            history.append(record)
+            # Keep up to 50 most recent runs
+            history = history[-50:]
+            self._runs_history_path.write_text(json.dumps(history, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
+    def get_recent_runs(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """Retrieve recent program execution logs and outputs, latest first."""
+        if not self._runs_history_path.exists():
+            return []
+        try:
+            history = json.loads(self._runs_history_path.read_text(encoding="utf-8"))
+            if isinstance(history, list):
+                return list(reversed(history))[:limit]
+        except Exception:
+            pass
+        return []
+
+    def get_last_run(self, repo_name: str) -> Optional[Dict[str, Any]]:
+        """Get the most recent run details and output for a specific project."""
+        clean_name = Path(repo_name).name
+        repo_dir = self.projects_dir / clean_name
+        last_run_file = repo_dir / ".last_run.json"
+        if last_run_file.exists():
+            try:
+                return json.loads(last_run_file.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        # Fallback to searching history
+        for r in self.get_recent_runs(limit=50):
+            if r.get("repo") == clean_name:
+                return r
+        return None
+
     def list_projects(self) -> List[Dict[str, Any]]:
         """List all GitHub project repositories in the workspace."""
         repos = []
@@ -190,6 +247,7 @@ if __name__ == "__main__":
                     "commit_count": commit_count,
                     "last_commit_msg": last_commit_msg,
                     "readme": readme_text,
+                    "last_run": self.get_last_run(p.name),
                     "created_at": datetime.fromtimestamp(ctime, tz=timezone.utc).isoformat(),
                     "updated_at": datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
                 })
@@ -252,6 +310,7 @@ if __name__ == "__main__":
             "readme": readme_text,
             "primary_file": primary_file,
             "primary_code": primary_code,
+            "last_run": self.get_last_run(clean_name),
             "created_at": datetime.fromtimestamp(repo_dir.stat().st_ctime, tz=timezone.utc).isoformat(),
             "updated_at": datetime.fromtimestamp(repo_dir.stat().st_mtime, tz=timezone.utc).isoformat()
         }
@@ -342,26 +401,65 @@ if __name__ == "__main__":
             cwd_path = repo_dir
 
         if not target_file.exists():
-            return ProjectExecutionResult(
+            res = ProjectExecutionResult(
                 success=False,
                 error=f"Entrypoint '{entrypoint}' not found in project '{clean_name}'."
             )
+            self._record_run({
+                "repo": clean_name,
+                "entrypoint": entrypoint,
+                "timestamp": current_utc_iso(),
+                "success": False,
+                "blocked": False,
+                "returncode": -1,
+                "stdout": "",
+                "stderr": "",
+                "error": res.error,
+                "safety_verdict": None
+            })
+            return res
 
         # 1. READ CONTENT FOR SAFETY INSPECTION
         try:
             content = target_file.read_text(encoding="utf-8")
         except Exception as e:
-            return ProjectExecutionResult(success=False, error=f"Could not read script: {e}")
+            res = ProjectExecutionResult(success=False, error=f"Could not read script: {e}")
+            self._record_run({
+                "repo": clean_name,
+                "entrypoint": entrypoint,
+                "timestamp": current_utc_iso(),
+                "success": False,
+                "blocked": False,
+                "returncode": -1,
+                "stdout": "",
+                "stderr": "",
+                "error": str(e),
+                "safety_verdict": None
+            })
+            return res
 
         # 2. RUN AGYC SAFETY CHECKER
         verdict = check_safety(content, target_name=f"{clean_name}/{entrypoint}")
         if not verdict.safe:
-            return ProjectExecutionResult(
+            res = ProjectExecutionResult(
                 success=False,
                 blocked=True,
                 error=f"BLOCKED BY SAFETY CHECKER: {verdict.reason}",
                 safety_verdict=verdict.model_dump()
             )
+            self._record_run({
+                "repo": clean_name,
+                "entrypoint": entrypoint,
+                "timestamp": current_utc_iso(),
+                "success": False,
+                "blocked": True,
+                "returncode": -1,
+                "stdout": "",
+                "stderr": "",
+                "error": res.error,
+                "safety_verdict": verdict.model_dump()
+            })
+            return res
 
         # 3. EXECUTE SCRIPT
         cmd = [sys.executable, str(target_file)]
@@ -372,7 +470,7 @@ if __name__ == "__main__":
             cmd.extend(args)
 
         try:
-            res = subprocess.run(
+            res_proc = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
@@ -380,16 +478,16 @@ if __name__ == "__main__":
                 cwd=str(cwd_path),
                 env={**os.environ, "PYTHONPATH": str(cwd_path)}
             )
-            return ProjectExecutionResult(
-                success=res.returncode == 0,
+            res = ProjectExecutionResult(
+                success=res_proc.returncode == 0,
                 blocked=False,
-                returncode=res.returncode,
-                stdout=res.stdout,
-                stderr=res.stderr,
+                returncode=res_proc.returncode,
+                stdout=res_proc.stdout,
+                stderr=res_proc.stderr,
                 safety_verdict=verdict.model_dump()
             )
         except subprocess.TimeoutExpired:
-            return ProjectExecutionResult(
+            res = ProjectExecutionResult(
                 success=False,
                 blocked=False,
                 returncode=-1,
@@ -397,12 +495,26 @@ if __name__ == "__main__":
                 safety_verdict=verdict.model_dump()
             )
         except Exception as e:
-            return ProjectExecutionResult(
+            res = ProjectExecutionResult(
                 success=False,
                 blocked=False,
                 error=f"Execution failed: {e}",
                 safety_verdict=verdict.model_dump()
             )
+
+        self._record_run({
+            "repo": clean_name,
+            "entrypoint": entrypoint,
+            "timestamp": current_utc_iso(),
+            "success": res.success,
+            "blocked": res.blocked,
+            "returncode": res.returncode,
+            "stdout": res.stdout,
+            "stderr": res.stderr,
+            "error": res.error,
+            "safety_verdict": res.safety_verdict
+        })
+        return res
 
     def push_to_github(self, repo_name: str) -> Dict[str, Any]:
         """

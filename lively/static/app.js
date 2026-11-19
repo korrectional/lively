@@ -1060,9 +1060,15 @@ async function loadProjects() {
             const gitBadge = repo.pushed_to_github
                 ? `<span class="badge ready" style="font-size:0.75rem;">☁️ GitHub</span>`
                 : `<span class="badge" style="font-size:0.75rem; background:rgba(148,163,184,0.15); color:#94a3b8;">💻 Local</span>`;
+            let runBadge = "";
+            if (repo.last_run) {
+                const lr = repo.last_run;
+                const runStatus = lr.success ? `✅ Ran ${lr.entrypoint}` : (lr.blocked ? `🛡️ Blocked` : `⚠️ Error (${lr.returncode})`);
+                runBadge = `<span class="badge" style="font-size:0.72rem; background:rgba(16,185,129,0.12); color:#10b981; border:1px solid rgba(16,185,129,0.25);">${runStatus}</span>`;
+            }
             item.innerHTML = `
                 <div class="item-info">
-                    <div class="item-title">📁 <b>${escapeHtml(repo.name)}</b> ${gitBadge} <span class="badge ready" style="font-size:0.75rem;">Git (${repo.commit_count || 1})</span></div>
+                    <div class="item-title">📁 <b>${escapeHtml(repo.name)}</b> ${gitBadge} ${runBadge} <span class="badge ready" style="font-size:0.75rem;">Git (${repo.commit_count || 1})</span></div>
                     <div class="item-subtitle">${escapeHtml(repo.description || "GitHub repository")}</div>
                     <div class="hint" style="font-size:0.78rem; margin-top:3px; color:#94a3b8;">
                         ${repo.file_count || 1} file(s) • Latest: <i>"${escapeHtml(repo.last_commit_msg || 'Initial commit')}"</i>
@@ -1132,7 +1138,22 @@ async function showProjectRepo(repoSummary) {
         loadRepoFile(repo.name, defaultFile);
 
         const outputBox = document.getElementById("code-output");
-        if (outputBox) outputBox.classList.add("hidden");
+        const stdoutBox = document.getElementById("code-stdout");
+        if (outputBox && stdoutBox && repo.last_run) {
+            outputBox.classList.remove("hidden");
+            const lr = repo.last_run;
+            let displayMsg = `[LAST RUN: ${lr.entrypoint} at ${new Date(lr.timestamp).toLocaleTimeString()}]\n`;
+            if (lr.blocked) {
+                displayMsg += `🛡️ BLOCKED BY SAFETY GUARD: ${lr.error}`;
+            } else if (lr.success) {
+                displayMsg += (lr.stdout || "Execution succeeded with returncode 0.");
+            } else {
+                displayMsg += (lr.stderr || lr.error || `Failed with exit code ${lr.returncode}`);
+            }
+            stdoutBox.innerText = displayMsg;
+        } else if (outputBox) {
+            outputBox.classList.add("hidden");
+        }
     } catch (e) {
         console.error("Error showing repo:", e);
     }
@@ -1637,6 +1658,19 @@ function startThinkingStream() {
                 data.actions.forEach(a => {
                     appendConsoleLine(`  ⚡ ${a.action_type}: ${JSON.stringify(a.parameters)}`, "action");
                 });
+            } else if (stage === "program_execution") {
+                const p = data.data || {};
+                const statusTag = p.success ? `✅ Exit 0 (Success)` : (p.blocked ? `🛡️ BLOCKED BY SAFETY` : `⚠️ Exit ${p.returncode}`);
+                appendConsoleLine(`\n🚀 [PROGRAM EXECUTION] ${p.repo}/${p.entrypoint} -> ${statusTag}`, "action");
+                if (p.blocked) {
+                    appendConsoleLine(`   🛡️ ${p.error}`, "system");
+                }
+                if (p.stdout) {
+                    appendConsoleLine(`   📤 STDOUT:\n${p.stdout.trim()}`, "memory");
+                }
+                if (p.stderr) {
+                    appendConsoleLine(`   ⚠️ STDERR:\n${p.stderr.trim()}`, "prompt");
+                }
             } else if (stage === "complete") {
                 appendConsoleLine(`\n✅ ${data.message}`, "action");
                 showNotification("🐿️ Squirrel finished thinking and acted!");

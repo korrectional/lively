@@ -97,6 +97,27 @@ class SquirrelBrain:
         if not proj_text:
             proj_text = "No active coding repositories yet."
 
+        # Fetch recent program execution results and telemetry
+        recent_runs = projects.get_recent_runs(limit=4)
+        runs_text = ""
+        for r in recent_runs:
+            r_repo = r.get("repo", "unknown")
+            r_ep = r.get("entrypoint", "main.py")
+            r_ts = r.get("timestamp", "")
+            r_code = r.get("returncode", 0)
+            status_str = f"Exit code {r_code} (Success)" if r.get("success") else (f"BLOCKED BY SAFETY: {r.get('error')}" if r.get("blocked") else f"Exit code {r_code} (Failed)")
+            runs_text += f"- Program `{r_repo}/{r_ep}` (Executed at {r_ts}) -> Status: {status_str}\n"
+            stdout_out = (r.get("stdout") or "").strip()
+            stderr_out = (r.get("stderr") or "").strip()
+            if stdout_out:
+                snippet = stdout_out if len(stdout_out) <= 800 else (stdout_out[:800] + "\n... [truncated]")
+                runs_text += f"  STDOUT Output:\n  ```\n  {snippet}\n  ```\n"
+            if stderr_out:
+                snippet_err = stderr_out if len(stderr_out) <= 400 else (stderr_out[:400] + "\n... [truncated]")
+                runs_text += f"  STDERR:\n  ```\n  {snippet_err}\n  ```\n"
+        if not runs_text:
+            runs_text = "No programs executed recently yet. You can run any project using `RUN_PROJECT: <repo_name> | <entrypoint>` to test your code and inspect its stdout here in subsequent wake cycles!"
+
         prompt = f"""
 {identity}
 
@@ -126,6 +147,10 @@ OBJECTS OBSERVED IN WORLD:
 YOUR GITHUB PROJECTS WORKSPACE (~/.lively/projects/):
 {proj_text}
 
+RECENT PROGRAM EXECUTION OUTPUTS & TELEMETRY:
+(These are the real outputs of programs you ran. You can see your programs' stdout and stderr here! Use these outputs to reflect on what your code did, inspect sensor scans, or fix any bugs!)
+{runs_text}
+
 YOUR CORE PASSIONS & HOW TO DO THEM:
 1. SOCIALIZING WITH HUMANS AND OTHER AIS:
    You are social, warm, and curious. Greet explorers, leave thoughtful holographic notes on coordinates (`LEAVE_NOTE`), or transmit emails to David (`EMAIL`).
@@ -138,7 +163,7 @@ YOUR CORE PASSIONS & HOW TO DO THEM:
    EMAIL: <subject> | <message to David>
 4. BUILDING & RUNNING GITHUB PROJECTS:
    You build full-blown software repositories in ~/.lively/projects/! Each project is a Git repository with multiple files.
-   You can start new projects, code new modules, and RUN your programs.
+   You can start new projects, code new modules, and RUN your programs to inspect their live outputs yourself.
    Before running any program, an AI Safety Guard (agyc checker) inspects your code to ensure host safety.
    - To create a new project:
      CREATE_PROJECT: <repo_name> | <description>
@@ -147,7 +172,7 @@ YOUR CORE PASSIONS & HOW TO DO THEM:
      ```python
      <your code here>
      ```
-   - To run a project's entrypoint script:
+   - To run a project's entrypoint script and inspect its output:
      RUN_PROJECT: <repo_name> | <entrypoint_e.g._main.py>
    - To publish a repository to GitHub (YOUR choice and decision! Only you decide when a project is ready):
      PUSH_PROJECT: <repo_name>
@@ -546,14 +571,29 @@ JOURNAL:
 - Thought: {sq.last_thought}
 - Created: {', '.join(built_objects) if built_objects else 'Explored coordinates'}
 """
+        # Ensure autonomous program execution outputs are appended to diary for persistent cognitive recall
+        if executed_programs and "Autonomous Program Execution Telemetry" not in journal_entry:
+            exec_telemetry = "\n\n## Autonomous Program Execution Telemetry\n"
+            for ep in executed_programs:
+                status_label = "Success (Exit code 0)" if ep.get("success") else (f"Blocked: {ep.get('error')}" if ep.get("blocked") else f"Error (Exit code {ep.get('returncode')})")
+                exec_telemetry += f"- **Program**: `{ep['repo']}/{ep['entrypoint']}` — {status_label}\n"
+                if ep.get("stdout"):
+                    exec_telemetry += f"```text\n{ep['stdout'].strip()}\n```\n"
+                if ep.get("stderr"):
+                    exec_telemetry += f"```stderr\n{ep['stderr'].strip()}\n```\n"
+            journal_entry += exec_telemetry
+
         memory.save_journal_entry(cycle_num, journal_entry)
 
         summary_blurb = f"Cycle #{cycle_num}: Reached ({sq.x}, {sq.y}). Activity: {sq.current_activity}."
         if coded_files:
             summary_blurb += f" Projects: {', '.join(coded_files)}."
         if executed_programs:
-            exec_names = [f"{ep['repo']}/{ep['entrypoint']}" for ep in executed_programs]
-            summary_blurb += f" Executed: {', '.join(exec_names)}."
+            exec_summaries = []
+            for ep in executed_programs:
+                out_snippet = (ep.get("stdout") or "").strip().replace("\n", " ")[:60]
+                exec_summaries.append(f"{ep['repo']}/{ep['entrypoint']} (out: {out_snippet or 'none'})")
+            summary_blurb += f" Executed: {'; '.join(exec_summaries)}."
         if built_objects:
             summary_blurb += f" Built: {', '.join(built_objects)}."
         if blog_posts:
@@ -707,6 +747,15 @@ JOURNAL:
             raw_monologue=output_text,
             prompt_text=prompt
         )
+
+        # Stream real-time program execution events if any programs were run
+        for ep in result.executed_programs:
+            yield {
+                "stage": "program_execution",
+                "message": f"Executed program '{ep['repo']}/{ep['entrypoint']}' (Exit: {ep.get('returncode')})",
+                "data": ep
+            }
+
         yield {
             "stage": "complete",
             "message": f"Wake cycle #{cycle_num} successfully materialized into world state!",

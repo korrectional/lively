@@ -891,10 +891,21 @@ function handleWebSocketMessage(data) {
     } else if (data.type === "object_removed") {
         state.world.objects = state.world.objects.filter(o => o.id !== data.id);
         renderObjectList();
+    } else if (data.type === "project_added") {
+        loadProjects();
+    } else if (data.type === "schedule_updated") {
+        loadSchedule();
+    } else if (data.type === "world_reset") {
+        updateWorldState(data.world);
+        loadProjects();
+        loadMemories();
+        loadSystemInfo();
+        showNotification("🌱 World & memories have been reset!");
     } else if (data.type === "squirrel_wake") {
         updateWorldState(data.world);
         loadProjects();
         loadMemories();
+        loadSystemInfo();
         showNotification("🐿️ Lively finished a wake cycle!");
     }
 }
@@ -1393,10 +1404,205 @@ function showNotification(msg) {
     setTimeout(() => n.remove(), 4000);
 }
 
+// ==========================================
+// Settings & Run Schedule Cadence
+// ==========================================
+async function loadSchedule() {
+    try {
+        const res = await fetch("/api/settings/schedule");
+        const data = await res.json();
+
+        const badge = document.getElementById("schedule-badge");
+        const nextRun = document.getElementById("schedule-next-run");
+        const banner = document.getElementById("schedule-status-banner");
+        const select = document.getElementById("schedule-frequency-select");
+        const customGroup = document.getElementById("custom-calendar-group");
+        const customInput = document.getElementById("schedule-custom-cal");
+
+        if (select) {
+            select.value = data.frequency || "paused";
+        }
+
+        if (customGroup) {
+            if (data.frequency === "custom") {
+                customGroup.classList.remove("hidden");
+                if (customInput) customInput.value = data.custom_on_calendar || "";
+            } else {
+                customGroup.classList.add("hidden");
+            }
+        }
+
+        if (data.active) {
+            if (badge) {
+                badge.innerText = "Active";
+                badge.className = "badge ready";
+            }
+            if (banner) {
+                banner.className = "status-banner active";
+            }
+            if (nextRun) {
+                nextRun.innerText = `Next run: ${data.next_run || "Scheduled"}`;
+            }
+        } else {
+            if (badge) {
+                badge.innerText = "Paused";
+                badge.className = "badge unlinked";
+            }
+            if (banner) {
+                banner.className = "status-banner paused";
+            }
+            if (nextRun) {
+                nextRun.innerText = "Manual wake only (Timer stopped)";
+            }
+        }
+    } catch (e) {
+        console.error("Load schedule error:", e);
+    }
+}
+
+const scheduleSelect = document.getElementById("schedule-frequency-select");
+if (scheduleSelect) {
+    scheduleSelect.addEventListener("change", (e) => {
+        const customGroup = document.getElementById("custom-calendar-group");
+        if (e.target.value === "custom") {
+            customGroup.classList.remove("hidden");
+        } else {
+            customGroup.classList.add("hidden");
+        }
+    });
+}
+
+const formSchedule = document.getElementById("form-schedule");
+if (formSchedule) {
+    formSchedule.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const freq = document.getElementById("schedule-frequency-select").value;
+        const customCal = document.getElementById("schedule-custom-cal") ? document.getElementById("schedule-custom-cal").value : "";
+        const msgBox = document.getElementById("schedule-msg");
+        const btn = document.getElementById("btn-save-schedule");
+
+        btn.disabled = true;
+        btn.innerText = "Applying Schedule...";
+        msgBox.innerText = "";
+
+        try {
+            const res = await fetch("/api/settings/schedule", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ frequency: freq, custom_on_calendar: customCal })
+            });
+            const out = await res.json();
+            msgBox.innerHTML = `<b style="color:#10b981;">✅ Cadence updated: ${out.message || "Saved"}</b>`;
+            loadSchedule();
+            loadSystemInfo();
+            showNotification(`⏰ Lively schedule updated to ${freq}!`);
+        } catch (err) {
+            msgBox.innerHTML = `<b style="color:#ef4444;">❌ Error: ${err}</b>`;
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "Apply Schedule Cadence";
+        }
+    });
+}
+
+// System Telemetry Info
+async function loadSystemInfo() {
+    try {
+        const res = await fetch("/api/system/info");
+        const info = await res.json();
+
+        const hostEl = document.getElementById("info-hostname");
+        if (hostEl) hostEl.innerText = info.hostname;
+
+        const tailEl = document.getElementById("info-tailscale");
+        if (tailEl) tailEl.innerText = info.tailscale_url;
+
+        const battEl = document.getElementById("info-battery");
+        if (battEl) battEl.innerText = `${info.squirrel_battery}%`;
+
+        const cycEl = document.getElementById("info-cycles");
+        if (cycEl) cycEl.innerText = `${info.total_cycles} cycles (${info.total_distance.toFixed(1)}m traveled)`;
+
+        const emailEl = document.getElementById("info-email");
+        if (emailEl) emailEl.innerText = info.user_email;
+    } catch (e) {
+        console.error("Load system info error:", e);
+    }
+}
+
+// Workspace Project Creation Form
+const formNewProject = document.getElementById("form-new-project");
+if (formNewProject) {
+    formNewProject.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const filename = document.getElementById("proj-new-filename").value.trim();
+        const desc = document.getElementById("proj-new-desc").value.trim();
+        const code = document.getElementById("proj-new-code").value;
+
+        try {
+            const res = await fetch("/api/projects", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ filename, description: desc, code })
+            });
+            if (res.ok) {
+                document.getElementById("proj-new-filename").value = "";
+                document.getElementById("proj-new-desc").value = "";
+                document.getElementById("proj-new-code").value = "";
+                loadProjects();
+                showNotification(`💻 Project '${filename}' saved to squirrel workspace!`);
+            }
+        } catch (err) {
+            alert("Error creating project: " + err);
+        }
+    });
+}
+
+// Settings tab manual wake
+const btnSettingsWake = document.getElementById("btn-settings-wake");
+if (btnSettingsWake) {
+    btnSettingsWake.addEventListener("click", () => {
+        startThinkingStream();
+    });
+}
+
+// World Factory Reset Button
+const btnFactoryReset = document.getElementById("btn-factory-reset");
+if (btnFactoryReset) {
+    btnFactoryReset.addEventListener("click", async () => {
+        const confirmMsg = "Are you sure you want to perform a Factory Reset?\n\nThis will:\n- Wipe all custom objects\n- Spawn TreeberryPine at coordinates (45, 45)\n- Return Lively to origin (0, 0)\n- Wipe all memory journals & caches\n- Restore starter projects";
+        if (!confirm(confirmMsg)) return;
+
+        const msgBox = document.getElementById("reset-msg");
+        btnFactoryReset.disabled = true;
+        btnFactoryReset.innerText = "Resetting...";
+
+        try {
+            const res = await fetch("/api/world/reset", { method: "POST" });
+            const data = await res.json();
+            if (data.success) {
+                msgBox.innerHTML = `<b style="color:#10b981;">✅ Factory reset complete. TreeberryPine restored.</b>`;
+                fetchWorld();
+                loadProjects();
+                loadMemories();
+                loadSystemInfo();
+                showNotification("🌱 Factory reset complete!");
+            }
+        } catch (err) {
+            msgBox.innerHTML = `<b style="color:#ef4444;">❌ Reset failed: ${err}</b>`;
+        } finally {
+            btnFactoryReset.disabled = false;
+            btnFactoryReset.innerText = "⚠️ Factory Reset World & Memories";
+        }
+    });
+}
+
 // Initial Boot
 fetchWorld();
 fetchGmailStatus();
 loadProjects();
 loadMemories();
+loadSchedule();
+loadSystemInfo();
 connectWebSocket();
 requestAnimationFrame(render);

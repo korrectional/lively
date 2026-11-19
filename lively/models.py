@@ -48,7 +48,7 @@ class CodedProject(BaseModel):
     updated_at: str = Field(default_factory=current_utc_iso)
 
 class SquirrelAction(BaseModel):
-    action_type: str  # THINK, MOVE_TO, INSPECT, BUILD_OBJECT, WRITE_CODE, LEAVE_NOTE, CACHE, EMAIL, JOURNAL
+    action_type: str  # THINK, MOVE_TO, INSPECT, BUILD_OBJECT, WRITE_CODE, LEAVE_NOTE, CACHE, EMAIL, BROWSE, JOURNAL
     parameters: Dict[str, Any] = Field(default_factory=dict)
     raw_text: str = ""
 
@@ -62,3 +62,4 @@ class WakeCycleResult(BaseModel):
     email_sent: Optional[Dict[str, str]] = None
     coded_files: List[str] = Field(default_factory=list)
     built_objects: List[str] = Field(default_factory=list)
+    web_searches: List[Dict[str, str]] = Field(default_factory=list)

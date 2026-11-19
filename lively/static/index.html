@@ -62,7 +62,8 @@
                 <button class="tab-btn" data-tab="tab-brain">🧠 Brain</button>
                 <button class="tab-btn" data-tab="tab-workshop">💻 Workshop</button>
                 <button class="tab-btn" data-tab="tab-memories">📖 Diary</button>
-                <button class="tab-btn" data-tab="tab-settings">✉️ Gmail</button>
+                <button class="tab-btn" data-tab="tab-gmail">✉️ Gmail</button>
+                <button class="tab-btn" data-tab="tab-settings">⚙️ Settings</button>
             </div>
 
             <div class="sidebar-content">
@@ -134,10 +135,31 @@
                 <!-- Tab: Squirrel Coding Workshop -->
                 <div id="tab-workshop" class="tab-pane">
                     <h3>Squirrel's Coding Workshop</h3>
+                    <div class="workspace-badge-bar">
+                        <span class="label">Workspace Directory:</span>
+                        <code>~/.lively/projects/</code>
+                    </div>
                     <p class="hint">Scripts and programs coded by Lively for self-enjoyment and simulation tinkering.</p>
                     <div id="project-list" class="item-list"></div>
 
-                    <div id="code-viewer" class="card hidden">
+                    <form id="form-new-project" class="card mt-2">
+                        <h4>+ Start New Project File</h4>
+                        <div class="form-group">
+                            <label>Filename:</label>
+                            <input type="text" id="proj-new-filename" placeholder="e.g. acorn_orbit.py" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Description:</label>
+                            <input type="text" id="proj-new-desc" placeholder="What does this project do?">
+                        </div>
+                        <div class="form-group">
+                            <label>Python Code:</label>
+                            <textarea id="proj-new-code" rows="4" placeholder="# Python script code..."></textarea>
+                        </div>
+                        <button type="submit" class="btn primary full-width">Save to Squirrel Workspace</button>
+                    </form>
+
+                    <div id="code-viewer" class="card hidden mt-2">
                         <div class="code-header">
                             <span id="code-filename" class="code-title">script.py</span>
                             <button id="btn-run-code" class="btn small success">▶ Run Script</button>
@@ -162,7 +184,7 @@
                 </div>
 
                 <!-- Tab: Gmail Setup & Test -->
-                <div id="tab-settings" class="tab-pane">
+                <div id="tab-gmail" class="tab-pane">
                     <h3>Gmail Integration</h3>
                     <p class="hint">Enable Lively to email you daily adventures, inventions, and greetings.</p>
 
@@ -220,6 +242,75 @@
                         <h4>Your Explorer Name</h4>
                         <div class="form-group">
                             <input type="text" id="user-display-name" value="David">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: System & Schedule Settings -->
+                <div id="tab-settings" class="tab-pane">
+                    <h3>Control Deck & Settings</h3>
+                    <p class="hint">Configure how often Lively runs its autonomous cognitive cycles, manage background schedules, and system maintenance.</p>
+
+                    <!-- Run Frequency / Schedule Section -->
+                    <div class="card">
+                        <h4>Autonomous Run Cadence</h4>
+                        <div class="form-group">
+                            <label>Timer Status:</label>
+                            <div id="schedule-status-banner" class="status-banner paused">
+                                <span id="schedule-badge" class="badge">Paused</span>
+                                <span id="schedule-next-run">Manual trigger only</span>
+                            </div>
+                        </div>
+
+                        <form id="form-schedule">
+                            <div class="form-group">
+                                <label>Run Frequency:</label>
+                                <select id="schedule-frequency-select">
+                                    <option value="paused">⏸️ Paused (Manual Wake Only — Current)</option>
+                                    <option value="daily">🌅 Once a Day (12:00 UTC)</option>
+                                    <option value="twice_daily">⏰ Twice a Day (09:00 & 21:00)</option>
+                                    <option value="four_daily">⚡ Four Times a Day (Every 6 Hours)</option>
+                                    <option value="hourly">⏱️ Hourly (Every Hour)</option>
+                                    <option value="custom">🛠️ Custom (Systemd OnCalendar)</option>
+                                </select>
+                            </div>
+
+                            <div id="custom-calendar-group" class="form-group hidden">
+                                <label>Custom Systemd OnCalendar Expression:</label>
+                                <input type="text" id="schedule-custom-cal" placeholder="e.g. *-*-* 08,16:00:00">
+                                <p class="hint">Systemd calendar specification (e.g. <code>*-*-* 09:00:00</code>).</p>
+                            </div>
+
+                            <button type="submit" id="btn-save-schedule" class="btn primary full-width">Apply Schedule Cadence</button>
+                            <div id="schedule-msg" class="hint mt-2"></div>
+                        </form>
+                    </div>
+
+                    <!-- Manual Wake & Live Thinking -->
+                    <div class="card mt-2">
+                        <h4>Manual Brain Wake</h4>
+                        <p class="hint">Trigger an immediate cognitive wake cycle on demand, or watch Lively think step-by-step.</p>
+                        <button id="btn-settings-wake" class="btn full-width">⚡ Trigger Wake Cycle Now</button>
+                    </div>
+
+                    <!-- World & Memory Factory Reset -->
+                    <div class="card mt-2">
+                        <h4>World & Memory Maintenance</h4>
+                        <p class="hint">Reset Lively's memories, wipe custom placed objects, restore the ancestral TreeberryPine tree at (45, 45), and place Lively back at origin (0, 0).</p>
+                        <button id="btn-factory-reset" class="btn danger full-width">⚠️ Factory Reset World & Memories</button>
+                        <div id="reset-msg" class="hint mt-2"></div>
+                    </div>
+
+                    <!-- Telemetry & Hardware Info -->
+                    <div class="card mt-2">
+                        <h4>Host Telemetry & System Info</h4>
+                        <div class="info-grid">
+                            <div class="info-row"><span class="info-key">Host:</span> <span id="info-hostname" class="info-val">dietpi</span></div>
+                            <div class="info-row"><span class="info-key">Tailscale:</span> <span id="info-tailscale" class="info-val">http://dietpi:8880</span></div>
+                            <div class="info-row"><span class="info-key">Squirrel Battery:</span> <span id="info-battery" class="info-val">100%</span></div>
+                            <div class="info-row"><span class="info-key">Total Cycles:</span> <span id="info-cycles" class="info-val">0</span></div>
+                            <div class="info-row"><span class="info-key">Projects:</span> <span id="info-projects" class="info-val">~/.lively/projects</span></div>
+                            <div class="info-row"><span class="info-key">Email Recipient:</span> <span id="info-email" class="info-val">tarassekanev@gmail.com</span></div>
                         </div>
                     </div>
                 </div>

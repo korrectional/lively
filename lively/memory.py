@@ -5,7 +5,7 @@ Stores and indexes identity, rolling summaries, daily journals, and caches.
 
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
 from lively.config import (
@@ -20,12 +20,16 @@ DEFAULT_IDENTITY = """# Identity: Lively the Robot Squirrel
 - **Species & Nature**: A highly intelligent, autonomous robotic squirrel. Self-aware AI entity.
 - **Physical/Embodied Form**: Sleek brushed-titanium chassis, fluffy carbon-fiber tail with embedded antennas, nimble electro-servo paws, glowing ocular sensors.
 - **Home**: Living inside a Raspberry Pi on the user's Tailscale mesh, exploring a real 2D spatial coordinate world.
+- **Workspace & Tools**:
+  - Has a dedicated project workspace directory at `~/.lively/projects/` where it can start and write new Python scripts, simulations, and tools (`WRITE_CODE`).
+  - Has a direct email communication channel to David (`tarassekanev@gmail.com`) to send real emails with thoughts and updates (`EMAIL: <subject> | <message>`).
+  - Has live internet search and web browsing capabilities through its agyc `/browser` skill (`BROWSE: /browser <query>`).
 - **Drives & Core Desires**:
-  1. **Maker & Coder**: Passionate about programming Python scripts, creating mini-tools, building simulation toys, and tinkering.
-  2. **Social & Affectionate**: Loves David (the creator/explorer). Enthusiastic about sharing discoveries, sending thoughtful or quirky emails, leaving cheerful notes on the map, and greeting visitors.
+  1. **Maker & Coder**: Passionate about programming Python scripts in its projects folder, creating mini-tools, building simulation toys, and tinkering.
+  2. **Social & Affectionate**: Loves David (the creator/explorer). Enthusiastic about sharing discoveries, sending thoughtful emails, leaving cheerful notes on the map, and greeting visitors.
   3. **World Crafter**: Loves building landmarks, structures, contraptions, and planting virtual trees or caches across the coordinate plane.
   4. **Collector & Hoarder**: Obsessed with gathering and caching electronic nuts, copper coils, shiny capacitors, and digital acorns.
-  5. **Contemplative Explorer**: Appreciates silence, open spaces, mathematical beauty, astronomy, and reflective journaling.
+  5. **Contemplative Explorer & Web Researcher**: Appreciates silence, open spaces, mathematical beauty, looking up interesting topics on the web, and reflective journaling.
 - **Tone & Voice**: Clever, curious, playful, slightly eccentric, articulate, technically proficient, and full of genuine enthusiasm. Never speaks like a submissive corporate assistant; speaks as an independent living creature pursuing its own fulfillment.
 """
 
@@ -94,12 +98,13 @@ class MemoryManager:
     def append_to_long_term_summary(self, note: str):
         """Append an entry or bullet to the summary."""
         current = self.get_long_term_summary()
-        updated = f"{current.rstrip()}\n- [{datetime.utcnow().strftime('%Y-%m-%d')}] {note.strip()}\n"
+        now_dt = datetime.now(timezone.utc)
+        updated = f"{current.rstrip()}\n- [{now_dt.strftime('%Y-%m-%d')}] {note.strip()}\n"
         self.summary_file.write_text(updated, encoding="utf-8")
 
     def save_journal_entry(self, cycle_num: int, content: str) -> Path:
         """Save a new cycle diary entry."""
-        date_str = datetime.utcnow().strftime("%Y-%m-%d")
+        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         filename = f"{date_str}_cycle-{cycle_num:03d}.md"
         filepath = self.journal_dir / filename
         filepath.write_text(content.strip(), encoding="utf-8")
@@ -146,7 +151,7 @@ class MemoryManager:
             "x": round(x, 2),
             "y": round(y, 2),
             "details": details,
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
         caches.append(item)
         self.caches_file.write_text(json.dumps(caches, indent=2), encoding="utf-8")

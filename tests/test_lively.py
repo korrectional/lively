@@ -150,6 +150,39 @@ Everything went smoothly today. Coded a light sensor.
     assert email_act.parameters["subject"] == "Hello David!"
     assert "coordinate (150, 200)" in email_act.parameters["body"]
 
+def test_browser_and_email_directives():
+    brain = SquirrelBrain()
+    sample = """
+THINK: Wondering about squirrel aerodynamics.
+BROWSE: /browser robotic biomimicry and squirrel tail balance
+EMAIL: Quick question | Hey David, what do you think about biomimetic tails?
+"""
+    actions = brain.parse_actions(sample)
+    action_types = [a.action_type for a in actions]
+    assert "BROWSE" in action_types
+    assert "EMAIL" in action_types
+
+    browse_act = next(a for a in actions if a.action_type == "BROWSE")
+    assert "robotic biomimicry" in browse_act.parameters["query"]
+
+    email_act = next(a for a in actions if a.action_type == "EMAIL")
+    assert email_act.parameters["subject"] == "Quick question"
+    assert "biomimetic tails" in email_act.parameters["body"]
+
+def test_scheduler_manager(temp_dir):
+    from lively.scheduler import SchedulerManager
+    cfg_file = temp_dir / "schedule.json"
+    sm = SchedulerManager(config_file=cfg_file)
+
+    # Initial state should be paused
+    status = sm.get_status()
+    assert status["frequency"] == "paused"
+    assert status["active"] is False
+
+    # Set to twice daily
+    status = sm.set_schedule("twice_daily")
+    assert status["frequency"] == "twice_daily"
+
 def test_email_service_url(temp_dir):
     token_f = temp_dir / "token.json"
     creds_f = temp_dir / "creds.json"

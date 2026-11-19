@@ -13,12 +13,13 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from lively.config import SERVER_HOST, SERVER_PORT, TAILSCALE_BASE_URL
+from lively.config import SERVER_HOST, SERVER_PORT, TAILSCALE_BASE_URL, USER_EMAIL
 from lively.world import world
 from lively.memory import memory
 from lively.projects import projects
 from lively.brain import brain
 from lively.email_service import email_service
+from lively.scheduler import scheduler
 
 app = FastAPI(title="Lively: Robot Squirrel World", version="0.1.0")
 
@@ -35,6 +36,15 @@ class NewObjectRequest(BaseModel):
     y: float
     type: str = "landmark"
     description: str = ""
+
+class NewProjectRequest(BaseModel):
+    filename: str
+    code: str
+    description: str = ""
+
+class ScheduleChangeRequest(BaseModel):
+    frequency: str  # paused, daily, twice_daily, four_daily, hourly, custom
+    custom_on_calendar: Optional[str] = None
 
 class CodeRunRequest(BaseModel):
     timeout: int = 5
@@ -115,6 +125,20 @@ async def list_projects():
     """List squirrel coded files."""
     return [p.model_dump() for p in projects.list_projects()]
 
+@app.post("/api/projects")
+async def create_project(req: NewProjectRequest):
+    """Save a new script into the squirrel's project directory."""
+    proj = projects.save_project(
+        filename=req.filename,
+        code=req.code,
+        description=req.description
+    )
+    await broadcast({
+        "type": "project_added",
+        "project": proj.model_dump()
+    })
+    return proj.model_dump()
+
 @app.post("/api/projects/{filename}/run")
 async def run_project(filename: str, req: CodeRunRequest = CodeRunRequest()):
     """Execute a squirrel python project and return output."""
@@ -192,6 +216,46 @@ class GmailSettingsRequest(BaseModel):
 class TestEmailRequest(BaseModel):
     subject: str = "Hello from Lively!"
     body: str = "This is a test message from your robot squirrel!"
+
+# Schedule Configuration & Endpoints
+@app.get("/api/settings/schedule")
+async def get_schedule_settings():
+    """Retrieve current wake cycle timer status and cadence."""
+    return scheduler.get_status()
+
+@app.post("/api/settings/schedule")
+async def update_schedule_settings(req: ScheduleChangeRequest):
+    """Update how often the squirrel runs (paused, daily, twice_daily, four_daily, hourly, custom)."""
+    status = scheduler.set_schedule(
+        frequency=req.frequency,
+        custom_on_calendar=req.custom_on_calendar
+    )
+    await broadcast({
+        "type": "schedule_updated",
+        "schedule": status
+    })
+    return status
+
+@app.get("/api/system/info")
+async def get_system_info():
+    """System diagnostics and telemetry."""
+    import socket
+    import platform
+    sq = world.squirrel
+    return {
+        "hostname": socket.gethostname(),
+        "platform": platform.platform(),
+        "tailscale_url": TAILSCALE_BASE_URL,
+        "user_email": USER_EMAIL,
+        "squirrel_battery": sq.battery,
+        "squirrel_position": (sq.x, sq.y),
+        "total_cycles": sq.total_cycles,
+        "total_distance": sq.total_distance_traveled,
+        "objects_count": len(world.objects),
+        "projects_count": len(projects.list_projects()),
+        "schedule": scheduler.get_status(),
+        "gmail_connected": email_service.is_authenticated()
+    }
 
 # Gmail Configuration & Endpoints
 @app.get("/api/settings/gmail")

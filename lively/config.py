@@ -15,6 +15,7 @@ PROJECTS_DIR = BASE_DATA_DIR / "projects"
 WORLD_FILE = BASE_DATA_DIR / "world.json"
 GMAIL_TOKEN_FILE = BASE_DATA_DIR / "gmail_token.json"
 GMAIL_CREDENTIALS_FILE = BASE_DATA_DIR / "gmail_credentials.json"
+SCHEDULE_CONFIG_FILE = BASE_DATA_DIR / "schedule.json"
 SENT_EMAILS_FILE = MEMORIES_DIR / "sent_emails.json"
 
 # Server configuration

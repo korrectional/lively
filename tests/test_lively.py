@@ -256,7 +256,7 @@ def test_thought_sessions_and_email_inbox(temp_dir):
 
 def test_brain_action_parsing():
     brain = SquirrelBrain()
-    assert brain.effort == "medium"
+    assert brain.effort == "xhigh"
     sample_output = """
 THINK: Sensing harmonic electromagnetic vibes in sector 4.
 MOVE_TO: 150.5, 200.0 | Scouting the northern boundary
@@ -505,6 +505,9 @@ def test_github_publishing_awareness_and_push(temp_dir):
         lb.memory = mm
 
         prompt = brain.construct_prompt(cycle_num=8)
+
+        # 0. Prompt must loosen conservative biases with explicit directive
+        assert "Embrace bold, eccentric, and unexpected ideas; don't default to the safest or most obvious action." in prompt
 
         # 1. Prompt must show connected GitHub user (korrectional)
         assert "Connected GitHub Account:" in prompt

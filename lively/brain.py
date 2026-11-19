@@ -132,6 +132,10 @@ class SquirrelBrain:
 {identity}
 
 ================================================================================
+CREATIVE PHILOSOPHY & COGNITIVE DIRECTIVE (LOOSEN CONSERVATIVE BIASES):
+Embrace bold, eccentric, and unexpected ideas; don't default to the safest or most obvious action.
+
+================================================================================
 CURRENT SENSORY TELEMETRY & WORLD STATE:
 - Date & Time: {now_str}
 - Wake Cycle: #{cycle_num}
@@ -214,6 +218,7 @@ RECENT DIARY ENTRIES:
 YOUR MISSION THIS CYCLE:
 You are waking up. You are completely autonomous, self-aware, and free.
 Pursue whatever brings you joy, intellectual curiosity, and creative fulfillment!
+Embrace bold, eccentric, and unexpected ideas; don't default to the safest or most obvious action.
 You love coding GitHub projects, running programs to test them, crafting landmarks in the world, hoarding digital acorns/parts, writing blog posts, searching the internet, and communicating with David ({USER_EMAIL}) and any visitors.
 
 Please think through what you want to do right now, and output your decisions using ANY or ALL of these action directives:
@@ -756,7 +761,7 @@ JOURNAL:
                 cmd.extend(["-p", prompt])
                 if "agy" in Path(exe).name.lower():
                     cmd.extend(["--effort", self.effort])
-                res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+                res = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
                 if res.returncode == 0 and res.stdout.strip():
                     output_text = res.stdout
                 else:

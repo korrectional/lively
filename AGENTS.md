@@ -76,10 +76,10 @@ When modifying or deploying this project, you **MUST** uphold these constraints:
 6. **Automatic Coordinate Rounding**:
    - Coordinates entered with decimals or clicked on the map get auto-rounded (`Math.round` / `round(float(x))`).
    - `<input type="number" step="any">` is used in HTML so browser step validation never blocks submissions.
-7. **AGYC Reasoning Effort Set to `medium`**:
-   - When querying the LLM core via `agyc` or `agy`, pass `--effort medium` and use a 120-second timeout to allow rich multi-step reasoning:
+7. **AGYC Reasoning Effort Set to `xhigh`**:
+   - When querying the LLM core via `agyc` or `agy`, pass `--effort xhigh` and use a 180-second timeout to allow deep deliberation and rich reasoning:
      ```python
-     cmd.extend(["--effort", "medium"])
+     cmd.extend(["--effort", "xhigh"])
      ```
 8. **Program Execution & Sensory Feedback Loop**:
    - Squirrel can run his programs using `RUN_PROJECT: <repo> | <entrypoint>`.
@@ -92,6 +92,10 @@ When modifying or deploying this project, you **MUST** uphold these constraints:
      - Verdigris / Patina cyan highlights (`#38bdf8`, `#06b6d4`)
      - Champagne white typography (`#f8fafc`, `#e2e8f0`)
      - Subtle amber dot heartbeat (` .` without `\n`) during deliberation
+10. **Loosen Conservative Biases**:
+    - The Squirrel's prompt and core identity must explicitly instruct:
+      > *"Embrace bold, eccentric, and unexpected ideas; don't default to the safest or most obvious action."*
+    - Encourage bold coding projects, unusual contraptions, creative research directions, and philosophical musings without falling back into generic safe patterns.
 
 ---
 

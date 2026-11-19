@@ -290,10 +290,10 @@ async def websocket_think_stream(ws: WebSocket):
             except asyncio.TimeoutError:
                 if task.done() and queue.empty():
                     break
-                # Keepalive heartbeat during LLM deliberation
+                # Keepalive heartbeat during LLM deliberation (quiet dot)
                 await ws.send_text(json.dumps({
                     "stage": "heartbeat",
-                    "message": "Neural synapse firing... deliberating with Gemini core..."
+                    "message": "."
                 }))
 
         # Broadcast final result to all world viewers

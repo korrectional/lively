@@ -1539,6 +1539,16 @@ function appendConsoleLine(text, type = "system") {
     box.scrollTop = box.scrollHeight;
 }
 
+function appendConsoleDot() {
+    const box = document.getElementById("thought-console");
+    if (!box) return;
+    const lastLine = box.lastElementChild;
+    if (lastLine) {
+        lastLine.innerText += " .";
+        box.scrollTop = box.scrollHeight;
+    }
+}
+
 function startThinkingStream() {
     switchTab("tab-brain");
     const badge = document.getElementById("think-status-badge");
@@ -1573,7 +1583,7 @@ function startThinkingStream() {
             } else if (stage === "llm_query") {
                 appendConsoleLine(`[NEURAL ENGINE] ${data.message}`, "system");
             } else if (stage === "heartbeat") {
-                appendConsoleLine(`⚡ ${data.message}`, "prompt");
+                appendConsoleDot();
             } else if (stage === "engine_notice") {
                 appendConsoleLine(`[ENGINE NOTICE] ${data.message}`, "prompt");
             } else if (stage === "engine_error") {

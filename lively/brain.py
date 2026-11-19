@@ -564,7 +564,8 @@ JOURNAL:
                             "user": push_res.get("github_user", "korrectional")
                         })
                     else:
-                        coded_files.append(f"Push {repo} failed: {push_res.get('error', 'Unknown error')}")
+                        err_msg = push_res.get("error") or push_res.get("output") or "Unknown error"
+                        coded_files.append(f"Push {repo} failed: {err_msg}")
 
         # Legacy WRITE_CODE (Flat script or project wrapper)
         for act in actions:

@@ -48,6 +48,10 @@ class ProjectManager:
             self._run_git(repo_dir, "init", "-b", "main")
             self._run_git(repo_dir, "config", "user.name", "Squirrel the Robot Squirrel")
             self._run_git(repo_dir, "config", "user.email", "tarassekanev+squirrel@gmail.com")
+            self._run_git(repo_dir, "config", "credential.helper", "!gh auth git-credential")
+            gitignore = repo_dir / ".gitignore"
+            if not gitignore.exists():
+                gitignore.write_text(".last_run.json\n__pycache__/\n*.pyc\n", encoding="utf-8")
         
         self._run_git(repo_dir, "add", "-A")
         self._run_git(repo_dir, "commit", "-m", commit_msg)
@@ -576,6 +580,18 @@ if __name__ == "__main__":
         # Explicitly configure git author so GitHub commits show Squirrel
         self._run_git(repo_dir, "config", "user.name", "Squirrel the Robot Squirrel")
         self._run_git(repo_dir, "config", "user.email", "tarassekanev+squirrel@gmail.com")
+        self._run_git(repo_dir, "config", "credential.helper", "!gh auth git-credential")
+
+        # Ensure .gitignore exists for internal runtime files
+        gitignore = repo_dir / ".gitignore"
+        if not gitignore.exists():
+            gitignore.write_text(".last_run.json\n__pycache__/\n*.pyc\n", encoding="utf-8")
+
+        # Stage and commit any unstaged/untracked project files before pushing
+        c_stat, stat_out = self._run_git(repo_dir, "status", "--porcelain")
+        if c_stat == 0 and stat_out.strip():
+            self._run_git(repo_dir, "add", "-A")
+            self._run_git(repo_dir, "commit", "-m", "Autonomous commit before GitHub push by Squirrel")
 
         # Check if already has a remote
         code, remotes = self._run_git(repo_dir, "remote", "-v")
@@ -585,7 +601,13 @@ if __name__ == "__main__":
             url = r_url.strip() if c == 0 else f"https://github.com/{gh_user}/{clean_name}"
             if url.endswith(".git"):
                 url = url[:-4]
-            return {"success": code == 0, "output": out, "url": url, "github_user": gh_user}
+            return {
+                "success": code == 0,
+                "output": out,
+                "error": out if code != 0 else None,
+                "url": url,
+                "github_user": gh_user
+            }
 
         try:
             desc = f"Coded by Squirrel the Robot Squirrel 🐿️⚡ | Autonomous project on Raspberry Pi"
@@ -600,9 +622,11 @@ if __name__ == "__main__":
             url = r_url.strip() if c == 0 else f"https://github.com/{gh_user}/{clean_name}"
             if url.endswith(".git"):
                 url = url[:-4]
+            out_text = (res.stdout or res.stderr).strip()
             return {
                 "success": res.returncode == 0,
-                "output": (res.stdout or res.stderr).strip(),
+                "output": out_text,
+                "error": out_text if res.returncode != 0 else None,
                 "url": url,
                 "github_user": gh_user
             }
